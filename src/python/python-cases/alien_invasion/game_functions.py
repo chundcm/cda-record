@@ -4,7 +4,8 @@ import pygame
 from bullet import Bullet
 from alien import Alien
 
-def check_keydown_events(event, ai_settings, screen, ship ,bullets):
+
+def check_keydown_events(event, ai_settings, screen, ship, bullets):
     if event.key == pygame.K_RIGHT:
         # 向右移动飞船
         ship.moving_right = True
@@ -66,6 +67,27 @@ def update_bullets(bullets):
             bullets.remove(bullet)
 
 
+def check_fleet_edges(ai_settings, aliens):
+    """有外星人到达边缘时采取相应措施"""
+    for alien in aliens.sprites():
+        if alien.check_edges():
+            change_fleet_direction(ai_settings, aliens)
+            break
+
+
+def change_fleet_direction(ai_settings, aliens):
+    """将整群外星人下移，并改变它们的方向"""
+    for alien in aliens.sprites():
+        alien.rect.y += ai_settings.fleet_drop_speed
+    ai_settings.fleet_direction *= -1
+
+
+def update_aliens(ai_settings, aliens):
+    """更新外星人群中所有外星人的位置，检查是否有人位于屏幕边缘"""
+    check_fleet_edges(ai_settings, aliens)
+    aliens.update()
+
+
 def get_number_aliens_x(ai_settings, alien_width):
     """计算每行可容纳多少外星人"""
     available_space_x = ai_settings.screen_width - 2 * alien_width
@@ -77,7 +99,7 @@ def get_number_rows(ai_settings, ship_height, alien_height):
     """计算屏幕可容纳多少行外星人"""
     available_space_y = (ai_settings.screen_height -
                          (3 * alien_height) - ship_height)
-    number_rows = int(available_space_y / ( 2 * alien_height))
+    number_rows = int(available_space_y / (2 * alien_height))
     return number_rows
 
 
