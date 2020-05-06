@@ -1,6 +1,6 @@
 import requests
 
-# serve -s src/python/python-programming/chapter16/
+# serve -s src/pythonic/pythonic-programming/chapter16/
 json_url = 'http://localhost:5000/btc_close_2017.json'
 req = requests.get(json_url)
 # 将数据写入文件
