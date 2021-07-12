@@ -1,4 +1,4 @@
-#coding=utf-8
+# coding=utf-8
 """ Transform XML Documents to Python objects
 
 Note 0:
@@ -60,19 +60,19 @@ Functions:
 """
 
 __version__ = "$Revision: 0.53 $"
-__author__=["David Mertz (mertz@gnosis.cx)",]
-__thanks_to__=["Grant Munsey (gmunsey@Adobe.COM)",
-               "Costas Malamas (costas@malamas.com)",
-               "Kapil Thangavelu (kvthan@wm.edu)",
-               "Mario Ruggier (Mario.Ruggier@softplumbers.com)",]
-__copyright__="""
+__author__ = ["David Mertz (mertz@gnosis.cx)", ]
+__thanks_to__ = ["Grant Munsey (gmunsey@Adobe.COM)",
+                 "Costas Malamas (costas@malamas.com)",
+                 "Kapil Thangavelu (kvthan@wm.edu)",
+                 "Mario Ruggier (Mario.Ruggier@softplumbers.com)", ]
+__copyright__ = """
     This file is released to the public domain.  I (dqm) would
     appreciate it if you choose to keep derived works under terms
     that promote freedom, but obviously am giving up any rights
     to compel such.
 """
 
-__history__="""
+__history__ = """
     0.1    Initial version
 
     0.11   Minor tweaks, and improvements to pyobj_printer().
@@ -159,6 +159,8 @@ __history__="""
 """
 
 from xml.dom.pulldom import DOMEventStream
+
+
 def _emit(self):
     """ Fallback replacement for getEvent() that emits
         the events that _slurp() read previously.
@@ -166,6 +168,8 @@ def _emit(self):
     rc = self.pulldom.firstEvent[1][0]
     self.pulldom.firstEvent[1] = self.pulldom.firstEvent[1][1]
     return rc
+
+
 def _slurp(self):
     """ Fallback replacement for getEvent() using the
         standard SAX2 interface, which means we slurp the
@@ -176,48 +180,54 @@ def _slurp(self):
     self.getEvent = self._emit
     return self._emit()
 
+
 DOMEventStream._emit = _emit
 DOMEventStream.getEvent = _slurp
 
-from types import *
-from cStringIO import StringIO
 import copy, string
 
-#-- Node types are now class constants defined in class Node.
+# -- Node types are now class constants defined in class Node.
 from xml.dom.minidom import Node
 from xml.dom import minidom
+
 DOM = 'DOM'
 
-#-- Support expat parsing for ExpatFactory (if possible)
+# -- Support expat parsing for ExpatFactory (if possible)
 try:
     import xml.parsers.expat
+
     EXPAT = 'EXPAT'
 except:
     EXPAT = None
 
-#-- Global option to save every container tag content
+# -- Global option to save every container tag content
 KEEP_CONTAINERS = 0
-ALWAYS, MAYBE, NEVER = (1,0,-1)
+ALWAYS, MAYBE, NEVER = (1, 0, -1)
+
+
 def keep_containers(val=None):
     if val is not None:
         global KEEP_CONTAINERS
         KEEP_CONTAINERS = val
     return KEEP_CONTAINERS
 
-#-- Base class for objectified XML nodes
+
+# -- Base class for objectified XML nodes
 class _XO_:
     def __getitem__(self, key):
         if key == 0:
             return self
         else:
             raise IndexError
+
     def __len__(self):
         return 1
 
 
-#-- Class interface to module functionality
+# -- Class interface to module functionality
 class XML_Objectify:
     """Factory object class for 'objectify XML document'"""
+
     def __init__(self, file=None, parser=DOM):
         self._parser = parser
         if type(file) == StringType:
@@ -226,7 +236,7 @@ class XML_Objectify:
             self._fh = file
         else:
             raise ValueError, \
-                  "XML_Objectify must be initialized with filename or file handle"
+                "XML_Objectify must be initialized with filename or file handle"
 
         # First parsing option:  EXPAT (stream based)
         if self._parser == EXPAT:
@@ -249,7 +259,7 @@ class XML_Objectify:
 
         else:
             raise ValueError, \
-                  "An invalid parser was specified: %s" % self._parser
+                "An invalid parser was specified: %s" % self._parser
 
     def make_instance(self):
         if self._parser == EXPAT:
@@ -259,21 +269,22 @@ class XML_Objectify:
         else:
             return None
 
-#-- expat based stream-oriented parser/objectifier
+
+# -- expat based stream-oriented parser/objectifier
 class ExpatFactory:
     def __init__(self, encoding="UTF-8", nspace_sep=" "):
         self._myparser = xml.parsers.expat.ParserCreate(encoding, nspace_sep)
         self.returns_unicode = 1
 
         self._current = None
-        self._root    = None
-        self._pcdata  = 0
+        self._root = None
+        self._pcdata = 0
 
         myhandlers = dir(self.__class__)
-        for b in  self.__class__.__bases__:
+        for b in self.__class__.__bases__:
             myhandlers.extend(dir(b))
-        myhandlers = [ h for h in myhandlers if h in dir(self._myparser) \
-                       if h.find('Handler') > 0 ]
+        myhandlers = [h for h in myhandlers if h in dir(self._myparser) \
+                      if h.find('Handler') > 0]
         for h in myhandlers:
             exec("self._myparser.%s = self.%s" % (h, h))
 
@@ -294,7 +305,7 @@ class ExpatFactory:
         try:
             safe_eval(klass)
         except NameError:
-            exec ('class %s(_XO_): pass' % klass)
+            exec('class %s(_XO_): pass' % klass)
 
         # Create an instance of the tag-named class
         py_obj = eval('%s()' % klass)
@@ -316,7 +327,7 @@ class ExpatFactory:
                 setattr(self._current, pyname, py_obj)
 
         # Build the attributes of the object being created
-        py_obj.__dict__   = attrs
+        py_obj.__dict__ = attrs
         setattr(py_obj, '__parent__', self._current)
         self._current = py_obj
 
@@ -334,7 +345,7 @@ class ExpatFactory:
             # Only use "real" node contents (not bare whitespace)
             if data.strip():
                 if hasattr(self._current, 'PCDATA'):
-                    self._current.PCDATA += ' '+data.strip()
+                    self._current.PCDATA += ' ' + data.strip()
                 else:
                     self._current.PCDATA = data.strip()
 
@@ -345,17 +356,17 @@ class ExpatFactory:
         self._pcdata = 0
 
 
-#-- Helper functions
+# -- Helper functions
 def pyobj_from_dom(dom_node):
     """Converts a DOM tree to a "native" Python object"""
 
     # does the tag-named class exist, or should we create it?
-    klass = '_XO_'+py_name(dom_node.nodeName)
+    klass = '_XO_' + py_name(dom_node.nodeName)
 
     try:
         safe_eval(klass)
     except NameError:
-        exec ('class %s(_XO_): pass' % klass)
+        exec('class %s(_XO_): pass' % klass)
     # create an instance of the tag-named class
     py_obj = eval('%s()' % klass)
 
@@ -382,8 +393,10 @@ def pyobj_from_dom(dom_node):
                 py_obj.PCDATA += node.nodeValue
             elif string.strip(node.nodeValue):  # only use "real" node contents
                 py_obj.PCDATA = node.nodeValue  # (not bare whitespace)
-                if not subtag: intro_PCDATA = 1
-                else: exit_PCDATA = 1
+                if not subtag:
+                    intro_PCDATA = 1
+                else:
+                    exit_PCDATA = 1
 
         # does a py_obj attribute corresponding to the subtag already exist?
         elif hasattr(py_obj, node_name):
@@ -403,11 +416,12 @@ def pyobj_from_dom(dom_node):
         pass
     elif KEEP_CONTAINERS >= ALWAYS:
         py_obj._XML = dom_node_xml
-    else:       # if dom_node appears to contain char markup, save _XML
+    else:  # if dom_node appears to contain char markup, save _XML
         if subtag and (intro_PCDATA or exit_PCDATA):
             py_obj._XML = dom_node_xml
 
     return py_obj
+
 
 def py_name(name):
     name = string.replace(name, '#', '_')
@@ -415,57 +429,63 @@ def py_name(name):
     name = string.replace(name, '-', '__')
     return name
 
+
 def safe_eval(s):
-    if 0:   # Condition for malicious string in eval() block
+    if 0:  # Condition for malicious string in eval() block
         raise "SecurityError", \
-              "Malicious string '%s' should not be eval()'d" % s
+            "Malicious string '%s' should not be eval()'d" % s
     else:
         return eval(s)
 
 
-#-- Self-test utility functions
+# -- Self-test utility functions
 def pyobj_printer(py_obj, level=0):
     """Return a "deep" string description of a Python object"""
-    if level==0: descript = '-----* '+py_obj.__class__.__name__+' *-----\n'
-    else: descript = ''
-    if hasattr(py_obj, '_XML'):     # present the literal XML of object
+    if level == 0:
+        descript = '-----* ' + py_obj.__class__.__name__ + ' *-----\n'
+    else:
+        descript = ''
+    if hasattr(py_obj, '_XML'):  # present the literal XML of object
         prettified_XML = string.join(string.split(py_obj._XML))[:50]
-        descript = (' '*level)+'CONTENT='+prettified_XML+'...\n'
-    else:                           # present the object hierarchy view
+        descript = (' ' * level) + 'CONTENT=' + prettified_XML + '...\n'
+    else:  # present the object hierarchy view
         for membname in dir(py_obj):
             if membname == "__parent__":
-                continue             # ExpatFactory uses bookeeping attribute
-            member = getattr(py_obj,membname)
+                continue  # ExpatFactory uses bookeeping attribute
+            member = getattr(py_obj, membname)
             if type(member) == InstanceType:
-                descript += '\n'+(' '*level)+'{'+membname+'}\n'
-                descript += pyobj_printer(member, level+3)
+                descript += '\n' + (' ' * level) + '{' + membname + '}\n'
+                descript += pyobj_printer(member, level + 3)
             elif type(member) == ListType:
                 for i in range(len(member)):
-                    descript += '\n'+(' '*level)+'['+membname+'] #'+str(i+1)
-                    descript += (' '*level)+'\n'+pyobj_printer(member[i],level+3)
+                    descript += '\n' + (' ' * level) + '[' + membname + '] #' + str(i + 1)
+                    descript += (' ' * level) + '\n' + pyobj_printer(member[i], level + 3)
             else:
-                descript += (' '*level)+membname+'='
+                descript += (' ' * level) + membname + '='
                 memval = string.join(string.split(str(member)))
                 if len(memval) > 50:
-                    descript += memval[:50]+'...\n'
+                    descript += memval[:50] + '...\n'
                 else:
                     descript += memval + '\n'
     return descript
 
 
-#-- Module self-test
+# -- Module self-test
 if __name__ == '__main__':
     import sys
+
     if len(sys.argv) > 1:
         for filename in sys.argv[1:]:
             xml_obj = XML_Objectify(filename)
             py_obj = xml_obj.make_instance()
-            print pyobj_printer(py_obj).encode('UTF-8')
+            print
+            pyobj_printer(py_obj).encode('UTF-8')
     else:
-        print "Please specify one or more XML files to Objectify."
+        print
+        "Please specify one or more XML files to Objectify."
 #
 ## Create a "factory object"
-#xml_object = XML_Objectify("/home/ekondrashev/svn_atlanta/ddmcontent_cp9_branch/assets9/discovery/discovery-packages/src/main/static_content/Network/Traffic/TCP_discovery/discoveryConfigFiles/tcpDiscoveryDescriptor.xml")
+# xml_object = XML_Objectify("/home/ekondrashev/svn_atlanta/ddmcontent_cp9_branch/assets9/discovery/discovery-packages/personal/main/static_content/Network/Traffic/TCP_discovery/discoveryConfigFiles/tcpDiscoveryDescriptor.xml")
 ## Create two different objects with recursively equal values
-#py_obj1 = xml_object.make_instance()
-#print py_obj1
+# py_obj1 = xml_object.make_instance()
+# print py_obj1

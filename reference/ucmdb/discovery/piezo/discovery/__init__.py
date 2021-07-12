@@ -9,15 +9,14 @@ integration.
 import traceback
 from operator import xor
 
+# UCMDB JAVA API
+import logger
 # JAVA API
 from java.lang import Exception as JavaException
 
-# UCMDB JAVA API
-import logger
-
 from ..exceptions import ClearException
-from ..stateholders.oshv import ObjStateHolderVector
 from ..services import get_framework
+from ..stateholders.oshv import ObjStateHolderVector
 
 __author__ = "Kevin Woldt"
 __copyright__ = "Copyright (C) 2017"
@@ -25,7 +24,6 @@ __license__ = "MIT License"
 
 
 class Structure(object):
-
     """Abstract class. All deriving classes need to implement the class
     variable _attributes, a list of attributes required for initializing
     an instance.
@@ -38,7 +36,7 @@ class Structure(object):
             ...
         TypeError: missing argument "attr2"
 
-    Use the attributes as usual, but keep in mind that they are immutable.
+    Use the attributes as usual, but keep in nodes that they are immutable.
 
         >>> class Example(Structure):
             ...   _attributes = ('attr',)
@@ -135,7 +133,6 @@ class Structure(object):
 
 
 class DefaultStructure(Structure):
-
     """Abstract class. All deriving classes need to implement the class
     variable _default_factory. _default_factory is called for each attribute in
     _attributes to initialize it with the return value.
@@ -161,7 +158,6 @@ class DefaultStructure(Structure):
 
 
 class Discovery(object):
-
     """Generalized error handling and framework reporting. Replaces
     DiscoveryMain with a generalized error handling and framework reporting.
 
@@ -171,7 +167,8 @@ class Discovery(object):
         >>> DiscoveryMain = Discovery(discover_some_topology)
     """
 
-    def __init__(self, discovery_func, clear_oshv_on_error=True, oshv_class=ObjStateHolderVector, oshv_convert_func=lambda v: v.oshv):
+    def __init__(self, discovery_func, clear_oshv_on_error=True, oshv_class=ObjStateHolderVector,
+                 oshv_convert_func=lambda v: v.oshv):
         """Class constructor. Takes the discovery function to execute.
         @param discovery_func discovery function to execute
         @param clear_oshv_on_error defines if the vector is cleared if a exception is caugth

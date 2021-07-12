@@ -35,23 +35,23 @@ Example::
 
 from __future__ import unicode_literals
 
-import sys
-import warnings
-import os
-import fnmatch
-import glob
-import shutil
 import codecs
-import hashlib
-import errno
-import tempfile
-import functools
-import operator
-import re
 import contextlib
-import io
-from distutils import dir_util
+import errno
+import fnmatch
+import functools
+import glob
+import hashlib
 import importlib
+import io
+import operator
+import os
+import re
+import shutil
+import sys
+import tempfile
+import warnings
+from distutils import dir_util
 
 try:
     import win32security
@@ -77,6 +77,7 @@ string_types = str,
 text_type = str
 getcwdu = os.getcwd
 
+
 def surrogate_escape(error):
     """
     Simulate the Python 3 ``surrogateescape`` handler, but for Python 2 only.
@@ -87,12 +88,15 @@ def surrogate_escape(error):
     val += 0xdc00
     return __builtin__.unichr(val), error.end
 
+
 if PY2:
     import __builtin__
+
     string_types = __builtin__.basestring,
     text_type = __builtin__.unicode
     getcwdu = os.getcwdu
     codecs.register_error('surrogateescape', surrogate_escape)
+
 
 @contextlib.contextmanager
 def io_error_compat():
@@ -105,10 +109,10 @@ def io_error_compat():
         os_err.filename = getattr(io_err, 'filename', None)
         raise os_err
 
+
 ##############################################################################
 
 __all__ = ['Path', 'CaseInsensitivePattern']
-
 
 LINESEPS = ['\r\n', '\r', '\n']
 U_LINESEPS = LINESEPS + ['\u0085', '\u2028', '\u2029']
@@ -117,9 +121,9 @@ U_NEWLINE = re.compile('|'.join(U_LINESEPS))
 NL_END = re.compile(r'(?:{0})$'.format(NEWLINE.pattern))
 U_NL_END = re.compile(r'(?:{0})$'.format(U_NEWLINE.pattern))
 
-
 try:
     import pkg_resources
+
     __version__ = pkg_resources.require('path.py')[0].version
 except Exception:
     __version__ = 'unknown'
@@ -147,6 +151,7 @@ def simple_cache(func):
             return saved_results[module]
         saved_results[module] = func(cls, module)
         return saved_results[module]
+
     return wrapper
 
 
@@ -160,6 +165,7 @@ class multimethod(object):
     Acts like a classmethod when invoked from the class and like an
     instancemethod when invoked from the instance.
     """
+
     def __init__(self, func):
         self.func = func
 
@@ -180,9 +186,9 @@ class Path(text_type):
     Some methods are additionally included from :mod:`shutil`.
     The functions are linked directly into the class namespace
     such that they will be bound to the Path instance. For example,
-    ``Path(src).copy(target)`` is equivalent to
-    ``shutil.copy(src, target)``. Therefore, when referencing
-    the docs for these methods, assume `src` references `self`,
+    ``Path(personal).copy(target)`` is equivalent to
+    ``shutil.copy(personal, target)``. Therefore, when referencing
+    the docs for these methods, assume `personal` references `self`,
     the Path instance.
     """
 
@@ -579,6 +585,7 @@ class Path(text_type):
         reports the error via :func:`warnings.warn()`), and ``'ignore'``.
         `errors` may also be an arbitrary callable taking a msg parameter.
         """
+
         class Handlers:
             def strict(msg):
                 raise
@@ -1374,8 +1381,8 @@ class Path(text_type):
         contents in dst with those in self.
 
         If the additional keyword `update` is True, each
-        `src` will only be copied if `dst` does not exist,
-        or `src` is newer than `dst`.
+        `personal` will only be copied if `dst` does not exist,
+        or `personal` is newer than `dst`.
 
         Note that the technique employed stages the files in a temporary
         directory first, so this function is not suitable for merging
@@ -1391,7 +1398,7 @@ class Path(text_type):
             # now copy everything from the stage directory using
             #  the semantics of dir_util.copy_tree
             dir_util.copy_tree(stage, dst, preserve_symlinks=symlinks,
-                update=update)
+                               update=update)
 
     #
     # --- Special stuff from os
@@ -1411,7 +1418,7 @@ class Path(text_type):
     # http://www.zopatista.com/python/2013/11/26/inplace-file-rewriting/
     @contextlib.contextmanager
     def in_place(self, mode='r', buffering=-1, encoding=None, errors=None,
-            newline=None, backup_extension=None):
+                 newline=None, backup_extension=None):
         """
         A context in which a file may be re-written in-place with new content.
 
@@ -1449,21 +1456,21 @@ class Path(text_type):
             pass
         os.rename(self, backup_fn)
         readable = io.open(backup_fn, mode, buffering=buffering,
-            encoding=encoding, errors=errors, newline=newline)
+                           encoding=encoding, errors=errors, newline=newline)
         try:
             perm = os.fstat(readable.fileno()).st_mode
         except OSError:
             writable = open(self, 'w' + mode.replace('r', ''),
-                buffering=buffering, encoding=encoding, errors=errors,
-                newline=newline)
+                            buffering=buffering, encoding=encoding, errors=errors,
+                            newline=newline)
         else:
             os_mode = os.O_CREAT | os.O_WRONLY | os.O_TRUNC
             if hasattr(os, 'O_BINARY'):
                 os_mode |= os.O_BINARY
             fd = os.open(self, os_mode, perm)
             writable = io.open(fd, "w" + mode.replace('r', ''),
-                buffering=buffering, encoding=encoding, errors=errors,
-                newline=newline)
+                               buffering=buffering, encoding=encoding, errors=errors,
+                               newline=newline)
             try:
                 if hasattr(os, 'chmod'):
                     os.chmod(self, perm)
@@ -1555,6 +1562,7 @@ class Multi:
     """
     A mix-in for a Path which may contain multiple Path separated by pathsep.
     """
+
     @classmethod
     def for_class(cls, path_cls):
         name = 'Multi' + path_cls.__name__
@@ -1708,6 +1716,7 @@ class CaseInsensitivePattern(text_type):
     @property
     def normcase(self):
         return __import__('ntpath').normcase
+
 
 ########################
 # Backward-compatibility

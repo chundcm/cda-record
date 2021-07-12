@@ -1,45 +1,43 @@
-#coding=utf-8
+# coding=utf-8
 from __future__ import nested_scopes
 
 import re
 import string
 
-import logger
-import modeling
-import shellutils
-import errormessages
-
-from java.lang import Exception as JavaException
-from java.lang import System
+from com.hp.ucmdb.discovery.library.clients.agents import BaseAgent
+from com.hp.ucmdb.discovery.library.common import CollectorsParameters
+from com.hp.ucmdb.discovery.library.communication.downloader.cfgfiles import GeneralSettingsConfigFile
+from java.io import ByteArrayInputStream
 from java.lang import Boolean
+from java.lang import Exception as JavaException
+from java.lang import String
+from java.lang import System
+from java.text import ParsePosition
+from java.text import SimpleDateFormat
 from java.util import Calendar
 from java.util import Date
 from java.util import Properties
-from java.text import SimpleDateFormat
-from java.text import ParsePosition
-from java.lang import String
-from java.io import ByteArrayInputStream
-
-from file_ver_lib import getFileLastModificationTime, getFileVersionByShell
-
-from org.jdom.input import SAXBuilder
-from com.hp.ucmdb.discovery.library.communication.downloader.cfgfiles import GeneralSettingsConfigFile
-from com.hp.ucmdb.discovery.library.clients.agents import BaseAgent
-from com.hp.ucmdb.discovery.library.common import CollectorsParameters
-
 from jregex import Pattern
 from jregex import REFlags
-from file_system import ExtensionsFilter, createFileSystem
-from file_info_discoverers import PathNotFoundException
-from file_topology import FileAttrs
-import file_topology
+from org.jdom.input import SAXBuilder
+
+import errormessages
 import file_system
+import file_topology
+import logger
+import modeling
+import shellutils
+from file_info_discoverers import PathNotFoundException
+from file_system import createFileSystem
+from file_topology import FileAttrs
+from file_ver_lib import getFileLastModificationTime
+
 
 ######## FileMonitor ###################################################################################
 class FileMonitor:
-    def __init__(self, Framework, shellUtils, OSHVResult, extensions, hostId, binaryExtensions = ""):
+    def __init__(self, Framework, shellUtils, OSHVResult, extensions, hostId, binaryExtensions=""):
         self.Framework = Framework
-        self.OSHVResult    = OSHVResult
+        self.OSHVResult = OSHVResult
         self.shellUtils = shellUtils
         self.hostId = hostId
         self.hostOSH = None
@@ -52,35 +50,35 @@ class FileMonitor:
         self.extensions = self.__parseExtensions(extensions)
         self.binaryExtensions = self.__parseExtensions(binaryExtensions)
 
-        #Init all I18N Strings language and codepage
+        # Init all I18N Strings language and codepage
         #        language = self.Framework.getDestinationAttribute('language')
         language = shellUtils.osLanguage.bundlePostfix
 
         langBund = None
         if (language != None) and (language != 'NA'):
-            langBund = self.Framework.getEnvironmentInformation().getBundle('langFileMonitoring',language)
+            langBund = self.Framework.getEnvironmentInformation().getBundle('langFileMonitoring', language)
         else:
             langBund = self.Framework.getEnvironmentInformation().getBundle('langFileMonitoring')
 
         self.__fileSystem = createFileSystem(shellUtils)
 
         # Windows
-        self.strWindowsCanotFind     = langBund.getString('windows_dir_str_canot_find')
-        self.strWindowsFileNotFound     = langBund.getString('windows_dir_str_file_not_found')
-        self.strWindowsDirectoryOf     = langBund.getString('windows_dir_str_directory_of') + ' '
+        self.strWindowsCanotFind = langBund.getString('windows_dir_str_canot_find')
+        self.strWindowsFileNotFound = langBund.getString('windows_dir_str_file_not_found')
+        self.strWindowsDirectoryOf = langBund.getString('windows_dir_str_directory_of') + ' '
         self.strWindowsDirectoryOfPattern = langBund.getString('windows_dir_str_directory_of_pattern')
-        self.strWindowsFiles         = langBund.getString('windows_dir_str_files')
-        self.strWindowsDir         = langBund.getString('windows_dir_str_dir')
-        self.strWindowsAm         = langBund.getString('windows_dir_str_am')
-        self.strWindowsPm         = langBund.getString('windows_dir_str_pm')
-        self.regWindowsPermissions     = langBund.getString('windows_attrib_reg_permissions')
-        self.strWindowsUpperP         = langBund.getString('windows_dir_str_upper_p')
-        self.strWindowsLowerP         = langBund.getString('windows_dir_str_lower_p')
+        self.strWindowsFiles = langBund.getString('windows_dir_str_files')
+        self.strWindowsDir = langBund.getString('windows_dir_str_dir')
+        self.strWindowsAm = langBund.getString('windows_dir_str_am')
+        self.strWindowsPm = langBund.getString('windows_dir_str_pm')
+        self.regWindowsPermissions = langBund.getString('windows_attrib_reg_permissions')
+        self.strWindowsUpperP = langBund.getString('windows_dir_str_upper_p')
+        self.strWindowsLowerP = langBund.getString('windows_dir_str_lower_p')
         # Unix
-        self.strUnixNoSuchFile         = langBund.getString('unix_ls_str_no_such_file')
-        self.strUnixTotal        = langBund.getString('unix_ls_str_total')
+        self.strUnixNoSuchFile = langBund.getString('unix_ls_str_no_such_file')
+        self.strUnixTotal = langBund.getString('unix_ls_str_total')
 
-        #shold find files by full name and not by extention
+        # shold find files by full name and not by extention
         logger.debug('FileMonitor created successfully')
         self.FileSeparator = None
         if self.shellUtils.isWinOs():
@@ -90,7 +88,7 @@ class FileMonitor:
 
     def __parseExtensions(self, extensionString):
         extensions = []
-        #Do not check for 'NA' assuming that 'NA" may be file extension itself
+        # Do not check for 'NA' assuming that 'NA" may be file extension itself
         if (extensionString and extensionString != ""):
             extensionsString = extensionString.replace(" ", "")
             extensions = extensionsString.split(',')
@@ -98,29 +96,29 @@ class FileMonitor:
 
     def createSymLink(self, src, dest):
         """
-        Creates and returns symlink to src
+        Creates and returns symlink to personal
         using (in fallback order) linkd, mklink and junction commands.
         str, str -> str
         @param src: valid path to source folder of a symlink
         @param dest: target path of symlink
-        @raise ValueError: on creation error, or if src is not valid path or if src or dest is None or empty
+        @raise ValueError: on creation error, or if personal is not valid path or if personal or dest is None or empty
         @return: path to the created symlink
         """
-        if not src or not dest: raise ValueError, 'Neither src or dest should not be None'
+        if not src or not dest: raise ValueError, 'Neither personal or dest should not be None'
 
         if self.exists(src):
             self.shellUtils.execAlternateCmdsList(['linkd %s %s' % (src, dest), \
-                                'mklink /d %s %s' % (src, dest)])
+                                                   'mklink /d %s %s' % (src, dest)])
             if self.shellUtils.getLastCmdReturnCode() != 0:
                 localFile = CollectorsParameters.BASE_PROBE_MGR_DIR + CollectorsParameters.getDiscoveryResourceFolder() + \
-                    CollectorsParameters.FILE_SEPARATOR + 'junction.exe'
+                            CollectorsParameters.FILE_SEPARATOR + 'junction.exe'
                 self.shellUtils.copyFileIfNeeded(localFile)
                 self.shellUtils.execCmd('junction %s %s /accepteula' % (dest, src))
 
             if self.shellUtils.getLastCmdReturnCode() != 0:
                 raise ValueError, "Failed to create symbolic link"
         else:
-            raise ValueError, 'src is not valid path'
+            raise ValueError, 'personal is not valid path'
         return dest
 
     def removeSymLink(self, path):
@@ -146,7 +144,7 @@ class FileMonitor:
             slash = string.rfind(path, slashDel)
             if slash > 0:
                 folder = path[0:slash]
-                name = path[slash+1:]
+                name = path[slash + 1:]
             else:
                 logger.warn('Path ', path, ' for configuration file is not absolute path')
                 continue
@@ -173,14 +171,14 @@ class FileMonitor:
                 locations.append(locationPath)
         return locations
 
-    def listFiles(self, folder, fileNameFilter = None):
+    def listFiles(self, folder, fileNameFilter=None):
         folder = self.rebuildPath(folder)
         if self.shellUtils.isWinOs():
             return self.listFilesWindows(folder, fileNameFilter)
         else:
             return self.listFilesUnix(folder, fileNameFilter)
 
-    def __getWinFiles(self, folder, args, pattern = "%s", fileNameFilter = None):
+    def __getWinFiles(self, folder, args, pattern="%s", fileNameFilter=None):
         """
         Executes 'dir' command on a target folder with passed args. Then formats filename according to passed pattern, and filters
         result list by fileNameFilter to get only necessary files and dirs. If fileNameFilter is None all files are collected.
@@ -198,7 +196,7 @@ class FileMonitor:
         @rtype: list
         """
         result = []
-        output = self.shellUtils.execCmd('dir \"%s\" %s' % (folder, args))#@@CMD_PERMISION shell protocol execution
+        output = self.shellUtils.execCmd('dir \"%s\" %s' % (folder, args))  # @@CMD_PERMISION shell protocol execution
         logger.debug('dir command result=%s' % output)
         if output is None or output.strip() == self.strWindowsFileNotFound:
             logger.debug('failed getting folder ', folder, ' - ', output)
@@ -211,7 +209,7 @@ class FileMonitor:
                     result.append(fileName)
         return result
 
-    def listFilesWindows(self, folder, fileNameFilter = None):
+    def listFilesWindows(self, folder, fileNameFilter=None):
         """
         Collects all files and folders of specified parent folder. Returns only files that are accepted by passed fileNameFilter.
         If fileNameFilter is None all files are accepted.
@@ -224,25 +222,26 @@ class FileMonitor:
         """
         logger.debug('WINDOWS: listing files from ', folder)
         result = []
-        #/B - Uses bare format (no heading information or summary).
-        #/A:D - List only directories
+        # /B - Uses bare format (no heading information or summary).
+        # /A:D - List only directories
         dir_args = '/B /A:D'
         result.extend(self.__getWinFiles(folder, dir_args, "%s\\", fileNameFilter))
 
-        #/B - Uses bare format (no heading information or summary).
-        #/A:-D - List only files
+        # /B - Uses bare format (no heading information or summary).
+        # /A:-D - List only files
         file_args = '/B /A:-D'
         result.extend(self.__getWinFiles(folder, file_args, "%s", fileNameFilter))
         return result
 
-    def listFilesUnix(self, folder, fileNameFilter = None):
+    def listFilesUnix(self, folder, fileNameFilter=None):
         logger.debug('UNIX: listing files from ', folder)
         files = []
         lsFullPathCommand = '/bin/ls -FA1 %s' % folder
         lsNonColored = 'ls -FA1 --color=never %s' % folder
         lsCommand = 'ls -FA1 %s' % folder
-        ls_res = self.shellUtils.execAlternateCmds(lsFullPathCommand,lsNonColored,lsCommand) #@@CMD_PERMISION shell protocol execution
-        if ls_res.find(self.strUnixNoSuchFile) > 0 or self.shellUtils.getLastCmdReturnCode()!=0:
+        ls_res = self.shellUtils.execAlternateCmds(lsFullPathCommand, lsNonColored,
+                                                   lsCommand)  # @@CMD_PERMISION shell protocol execution
+        if ls_res.find(self.strUnixNoSuchFile) > 0 or self.shellUtils.getLastCmdReturnCode() != 0:
             logger.debug('failed getting folder ', folder)
             return files
         lines = ls_res.splitlines()
@@ -250,17 +249,17 @@ class FileMonitor:
             line = line.strip()
             if line:
                 if line[-1] not in '=>@|':
-                #Skipping FIFOs(|), sockets(=), links(@) and doors (>)
+                    # Skipping FIFOs(|), sockets(=), links(@) and doors (>)
                     if line.endswith('*'):
-                    #stripping asterisk for files that can be executed
-                        line = line [:-1]
+                        # stripping asterisk for files that can be executed
+                        line = line[:-1]
                     if (fileNameFilter is None) or fileNameFilter.accept(line):
                         files.append(line)
         return files
 
     def __reportFiles(self, parentOSH, files):
         res = None
-        for file in files :
+        for file in files:
             self.reportFile(parentOSH, file)
         return res
 
@@ -296,21 +295,21 @@ class FileMonitor:
         return []
 
     def _findFilesRecursively(self, path, filePattern):
-            r'''@types: str, str -> list(str)
-            '''
-            findCommand = 'find "%s" -type f | grep "%s"' % (path, filePattern)
-            if self.shellUtils.isWinOs():
-                if (path.find(' ') > 0) and (path[0] != '\"'):
-                    path = r'"%s"' % path
+        r'''@types: str, str -> list(str)
+        '''
+        findCommand = 'find "%s" -type f | grep "%s"' % (path, filePattern)
+        if self.shellUtils.isWinOs():
+            if (path.find(' ') > 0) and (path[0] != '\"'):
+                path = r'"%s"' % path
 
-                findCommand = 'dir %s /s /b | findstr %s' % (path, filePattern)
+            findCommand = 'dir %s /s /b | findstr %s' % (path, filePattern)
 
-            output = self.shellUtils.execCmd(findCommand)
-            if self.shellUtils.getLastCmdReturnCode() == 0:
-                return map(string.strip, output.strip().split('\n'))
-            return []
+        output = self.shellUtils.execCmd(findCommand)
+        if self.shellUtils.getLastCmdReturnCode() == 0:
+            return map(string.strip, output.strip().split('\n'))
+        return []
 
-    def getFiles(self, parentOSH, path, fileName = None, reportFiles = 1):
+    def getFiles(self, parentOSH, path, fileName=None, reportFiles=1):
         '''Obtains files by specified path. There are two scenario possible:
         1. Specified fileName is not empty or None - only target file if it is found returned.
         Path is regarded as parent folder in that case.
@@ -331,7 +330,7 @@ class FileMonitor:
             requiredAttributes = [FileAttrs.NAME, FileAttrs.OWNER, FileAttrs.PERMS, \
                                   FileAttrs.SIZE, FileAttrs.PATH, \
                                   FileAttrs.CREATION_TIME, FileAttrs.VERSION,
-                                  FileAttrs.LAST_MODIFICATION_TIME, FileAttrs.IS_DIRECTORY ]
+                                  FileAttrs.LAST_MODIFICATION_TIME, FileAttrs.IS_DIRECTORY]
             files = []
             file = None
             if fileName:
@@ -354,29 +353,29 @@ class FileMonitor:
                     paths = []
                     # Looking for file candidates based on some pattern in name to make
                     # deeper discovery using file_system
-                    
+
                     for ext in self.extensions:
                         if len(ext) == 0:
-                            #get files without extension
+                            # get files without extension
                             paths.extend(self._findFilesWithoutExtensionRecursively(path))
                         else:
                             paths.extend(self._findFilesRecursively(path, '.%s' % ext))
 
-                    
-#                    for extension in map(lambda ext: '.%s' % ext, self.extensions):
-#                        paths.extend(self._findFilesRecursively(path, extension))
+                    #                    for extension in map(lambda ext: '.%s' % ext, self.extensions):
+                    #                        paths.extend(self._findFilesRecursively(path, extension))
                     if not self.shellUtils.isWinOs() and self.discoverUnixHiddenFiles:
                         paths.extend(self._findUnixHiddenFilesRecursively(path))
                     for path in paths:
                         if self.shellUtils.isWinOs():
-                            file = self.__fileSystem.getFile(path, fileAttrs = [file_topology.FileAttrs.NAME, file_topology.FileAttrs.IS_DIRECTORY])
+                            file = self.__fileSystem.getFile(path, fileAttrs=[file_topology.FileAttrs.NAME,
+                                                                              file_topology.FileAttrs.IS_DIRECTORY])
                             if file.isDirectory:
                                 continue
-                        file = self.__fileSystem.getFile(path, fileAttrs = requiredAttributes)
+                        file = self.__fileSystem.getFile(path, fileAttrs=requiredAttributes)
                         files.append(file)
 
                 else:
-                    files = self.__fileSystem.getFiles(path, self.recursive, fileAttrs = requiredAttributes)
+                    files = self.__fileSystem.getFiles(path, self.recursive, fileAttrs=requiredAttributes)
 
                 filterFn = None
                 if not self.shellUtils.isWinOs():
@@ -386,9 +385,8 @@ class FileMonitor:
                         filterFn = lambda f: not f.name.startswith('.') and extFilter.accept(f)
                 else:
                     filterFn = extFilter.accept
-                                     
-                files = filter(filterFn, files)
 
+                files = filter(filterFn, files)
 
             if reportFiles:
                 self.__reportFiles(parentOSH, filter(lambda file: file.isDirectory, files))
@@ -399,7 +397,8 @@ class FileMonitor:
             logger.debug('NEW_FS: Path not found %s' % path)
         except:
             logger.debugException('NEW_FS_ERROR')
-#                return self.getFilesWindows(parentOSH, path, fileName)
+
+    #                return self.getFilesWindows(parentOSH, path, fileName)
 
     def exists(self, path):
         """
@@ -411,9 +410,9 @@ class FileMonitor:
         if not path:
             raise ValueError, 'path should not be None or empty'
         if self.shellUtils.isWinOs():
-            return self.checkWindowsPath( path )
+            return self.checkWindowsPath(path)
         else:
-            return self.checkUnixPath( path )
+            return self.checkUnixPath(path)
 
     ##########################################
     # Parameters- (path: the path to test)
@@ -423,7 +422,7 @@ class FileMonitor:
     #########################################
     def checkPath(self, path):
         if (path[0] != '"'):
-            path = '"'+path +'"'
+            path = '"' + path + '"'
         return self.exists(path)
 
     ##################################################################################
@@ -452,9 +451,9 @@ class FileMonitor:
         if self.shellUtils.isWinOs():
             if (not path.startswith('"') and not path.endswith('"')):
                 path = '"%s"' % path
-            path = re.sub('/','\\\\',path)
+            path = re.sub('/', '\\\\', path)
         else:
-            path = re.sub('\\\\','/',path)
+            path = re.sub('\\\\', '/', path)
         return path
 
     def isInExtensions(self, extension, extensions):
@@ -465,6 +464,7 @@ class FileMonitor:
         else:
             return ('*' in extensions or '' in extensions)
         return 0
+
     ##################################################################################
     # parameters:
     # * parentOSH - The Document/File parent ObjectStateHolder (If you set the Directory as parent, this could be None)
@@ -473,11 +473,14 @@ class FileMonitor:
     #
     # This Method triggers the relavant getFilesXXX method according to the protocol type
     ##################################################################################
-    def buildDocument(self, parentOSH,delimeter,directory,name,extension,lastmodifiedDate,size,owner,permissions):
+    def buildDocument(self, parentOSH, delimeter, directory, name, extension, lastmodifiedDate, size, owner,
+                      permissions):
         if self.isInExtensions(extension, self.extensions):
-            return self.buildConfigFileByFullName(parentOSH, delimeter,directory,name,extension,lastmodifiedDate,size,owner,permissions)
+            return self.buildConfigFileByFullName(parentOSH, delimeter, directory, name, extension, lastmodifiedDate,
+                                                  size, owner, permissions)
 
-    def buildConfigFileByFullName(self, parentOSH, delimeter,directory,name,extension,lastmodifiedDate,size,owner,permissions):
+    def buildConfigFileByFullName(self, parentOSH, delimeter, directory, name, extension, lastmodifiedDate, size, owner,
+                                  permissions):
         f = file_topology.File(name, 0)
         fullFilePath = self.buildFullPath(directory, delimeter, name, extension)
         if not self.isInExtensions(extension, self.binaryExtensions):
@@ -494,16 +497,17 @@ class FileMonitor:
         if extension is not None:
             theExtention = str(extension)
             if len(theExtention) > 0:
-                fullFilePath = fullFilePath  + '.' + theExtention
+                fullFilePath = fullFilePath + '.' + theExtention
         return fullFilePath
 
     def createDocument(self, parentOSH, path,
                        name, extension, lastmodifiedDate,
-                       size, owner, permissions, data, fileVersion = None):
+                       size, owner, permissions, data, fileVersion=None):
         if extension:
             name = '%s.%s' % (name, extension)
 
-        documentOSH = modeling.createConfigurationDocumentOSH(name, path, data, parentOSH, None, lastmodifiedDate, None, fileVersion)
+        documentOSH = modeling.createConfigurationDocumentOSH(name, path, data, parentOSH, None, lastmodifiedDate, None,
+                                                              fileVersion)
         if size:
             documentOSH.setLongAttribute('document_size', size)
         documentOSH.setAttribute('document_osowner', owner)
@@ -515,6 +519,7 @@ class FileMonitor:
             self.Framework.sendObject(obj)
         else:
             self.OSHVResult.add(obj)
+
     ###########################################################
     ## Discovery on Unix
     ###########################################################
@@ -527,7 +532,7 @@ class FileMonitor:
     # The document is then linked to the parentOSH (if its not None), if createDir is set to 1, it will create
     # a Directory OSH and link the document to it.
     ###########################################################
-    def getFilesUnix(self, parentOSH, folder, searchFileName = None):
+    def getFilesUnix(self, parentOSH, folder, searchFileName=None):
         if parentOSH is None:
             if self.hostOSH is not None:
                 parentOSH = self.hostOSH
@@ -536,8 +541,8 @@ class FileMonitor:
 
         logger.debug('UNIX: getting files from ', folder)
 
-#        ls_command = 'ls -lA ' + folder
-#        ls_res = self.client.executeCmd( ls_command )
+        #        ls_command = 'ls -lA ' + folder
+        #        ls_res = self.client.executeCmd( ls_command )
         lsFullPathCommand = '/bin/ls -lA %s' % folder
         lsNonColored = 'ls -lA --color=never %s' % folder
         lsCommand = 'ls -lA %s' % folder
@@ -546,7 +551,8 @@ class FileMonitor:
             lsNonColored = 'ls -R -lA --color=never %s' % folder
             lsCommand = 'ls -R -lA %s' % folder
 
-        ls_res = self.shellUtils.execAlternateCmds(lsFullPathCommand,lsNonColored,lsCommand) #@@CMD_PERMISION shell protocol execution
+        ls_res = self.shellUtils.execAlternateCmds(lsFullPathCommand, lsNonColored,
+                                                   lsCommand)  # @@CMD_PERMISION shell protocol execution
 
         if ls_res.find(self.strUnixNoSuchFile) > 0:
             logger.debug('failed getting folder ', folder)
@@ -560,7 +566,7 @@ class FileMonitor:
             if line:
                 # Find out current folder in recursive search
                 # for instance
-                #/tmp/file_mon1:
+                # /tmp/file_mon1:
                 if line.startswith(folder) and line.endswith(':'):
                     currFolder = line[:-1]
                     continue
@@ -582,7 +588,7 @@ class FileMonitor:
                         permissions = notEmptyTokens[0].strip()
                         owner = notEmptyTokens[2].strip() + ':' + notEmptyTokens[3].strip()
                         size = notEmptyTokens[4].strip()
-#                        lastmodified = notEmptyTokens[5].strip() + ' ' + notEmptyTokens[6].strip() + ' ' + notEmptyTokens[7].strip()
+                        #                        lastmodified = notEmptyTokens[5].strip() + ' ' + notEmptyTokens[6].strip() + ' ' + notEmptyTokens[7].strip()
                         fullName = notEmptyTokens[7].strip()
 
                         extInd = fullName.rfind('.')
@@ -593,22 +599,22 @@ class FileMonitor:
                             name = fullName
                             if extInd > 0:
                                 name = fullName[:extInd]
-                                extension = fullName[extInd+1:]
+                                extension = fullName[extInd + 1:]
                             else:
                                 extension = ''
                         elif extInd > 0:
                             name = fullName[0:extInd]
-                            extension = fullName[extInd+1:]
+                            extension = fullName[extInd + 1:]
                         else:
                             name = fullName
                             extension = ''
 
-
                         slash = string.rfind(name, '/')
                         if (slash > 0):
-                            name = name[slash+1:len(name)]
+                            name = name[slash + 1:len(name)]
 
-                        lastmodifiedDate = getFileLastModificationTime(self.shellUtils, currFolder + self.FileSeparator + fullName)
+                        lastmodifiedDate = getFileLastModificationTime(self.shellUtils,
+                                                                       currFolder + self.FileSeparator + fullName)
                         logger.debug("Full Name is " + fullName)
                         if logger.isDebugEnabled():
                             logger.debug('------------------------------------------------')
@@ -618,25 +624,27 @@ class FileMonitor:
                             logger.debug('name = ', name)
                             logger.debug('extension = ', extension)
                             logger.debug('------------------------------------------------')
-#                        lastmodifiedDate = self.parseUnixDate(lastmodified)
+                        #                        lastmodifiedDate = self.parseUnixDate(lastmodified)
 
                         # in case folder already contains name and extension -
                         # remove it from folder for buildDocument correct work:
                         if folder.endswith('%s.%s' % (name, extension)):
-                            folder = folder[:folder.index('%s.%s' % (name,extension))]
+                            folder = folder[:folder.index('%s.%s' % (name, extension))]
                         elif folder.endswith('%s.%s"' % (name, extension)):
-                            folder = folder[:folder.index('%s.%s"' % (name,extension))] + '"'
+                            folder = folder[:folder.index('%s.%s"' % (name, extension))] + '"'
                         if searchFileName != None:
-                            return self.buildConfigFileByFullName(parentOSH, '/',currFolder,name,extension,lastmodifiedDate,size,owner,permissions)
+                            return self.buildConfigFileByFullName(parentOSH, '/', currFolder, name, extension,
+                                                                  lastmodifiedDate, size, owner, permissions)
                         else:
                             # JEO - Fidelity
                             # must strip filename from 'folder' argument if it was included
                             # OOTB WebSphere failing to read files because this code specified the name twice
                             # <2008-10-09 17:26:20,843> [DEBUG] [JobExecuterWorker-3:fmr_JMX_J2EE_Websphere_10.33.193.45] (SSHAgent.java:525) - doExecuteCommandSSH: result [cat: /fmtc1pmmk1/was/610/profiles/base/config/cells/fmtc1pmmk1_ND_CELL/nodes/fmtc1pmmk1_BD_NODE/servers/nodeagent/server.xml/server.xml: Not a directory
                             lastslash = string.rfind(fullName, '/')
-                            if (lastslash>0):
-                                folder = fullName[0:lastslash+1]
-                            self.buildDocument(parentOSH, '/',currFolder,name,extension,lastmodifiedDate,size,owner,permissions)
+                            if (lastslash > 0):
+                                folder = fullName[0:lastslash + 1]
+                            self.buildDocument(parentOSH, '/', currFolder, name, extension, lastmodifiedDate, size,
+                                               owner, permissions)
 
     ##########################################
     # Parameters- (path: the path to test)
@@ -644,18 +652,17 @@ class FileMonitor:
     # Description: Check if the given path is valid, return 1 if it is,
     #        0 if its not.
     #########################################
-    def checkUnixPath(self,path):
+    def checkUnixPath(self, path):
         logger.debug('UNIX: Check if path is valid ', path)
 
         ls_command = 'ls -lA ' + path
-        ls_res = self.shellUtils.execCmd( ls_command )#@@CMD_PERMISION shell protocol execution
+        ls_res = self.shellUtils.execCmd(ls_command)  # @@CMD_PERMISION shell protocol execution
         if (self.shellUtils.getLastCmdReturnCode() != 0):
             logger.debug('path is not valid:', path)
-#        if ls_res.find(self.strUnixNoSuchFile) > 0:
-#            logger.debug('path is not valid:', path)
+            #        if ls_res.find(self.strUnixNoSuchFile) > 0:
+            #            logger.debug('path is not valid:', path)
             return 0
         return 1
-
 
     def parseUnixDate(self, lastmodified):
         # ls command displays year only if the time of last modification is greater than six months ago
@@ -665,19 +672,22 @@ class FileMonitor:
             calendar.setTime(nowDate)
             year = calendar.get(Calendar.YEAR)
             lastYear = year - 1
-            lastmodifiedDate = SimpleDateFormat('yyyy MMM d HH:mm').parse(int(year).toString() + ' ' + lastmodified,ParsePosition(0))
+            lastmodifiedDate = SimpleDateFormat('yyyy MMM d HH:mm').parse(int(year).toString() + ' ' + lastmodified,
+                                                                          ParsePosition(0))
             if lastmodifiedDate == None:
-                lastmodifiedDate = SimpleDateFormat('yyyy d. MMM HH:mm').parse(int(year).toString() + ' ' + lastmodified,ParsePosition(0))
+                lastmodifiedDate = SimpleDateFormat('yyyy d. MMM HH:mm').parse(
+                    int(year).toString() + ' ' + lastmodified, ParsePosition(0))
             if (lastmodifiedDate != None) and (lastmodifiedDate.getTime() > nowDate.getTime()):
-                lastmodifiedDate = SimpleDateFormat('yyyy MMM d HH:mm').parse(int(lastYear).toString() + ' ' + lastmodified,ParsePosition(0))
+                lastmodifiedDate = SimpleDateFormat('yyyy MMM d HH:mm').parse(
+                    int(lastYear).toString() + ' ' + lastmodified, ParsePosition(0))
                 if lastmodifiedDate == None:
-                    lastmodifiedDate = SimpleDateFormat('yyyy d. MMM HH:mm').parse(int(lastYear).toString() + ' ' + lastmodified,ParsePosition(0))
+                    lastmodifiedDate = SimpleDateFormat('yyyy d. MMM HH:mm').parse(
+                        int(lastYear).toString() + ' ' + lastmodified, ParsePosition(0))
         else:
-            lastmodifiedDate = SimpleDateFormat('MMM d yyyy').parse(lastmodified,ParsePosition(0))
+            lastmodifiedDate = SimpleDateFormat('MMM d yyyy').parse(lastmodified, ParsePosition(0))
             if lastmodifiedDate == None:
-                lastmodifiedDate = SimpleDateFormat('d. MMM yyyy').parse(lastmodified,ParsePosition(0))
+                lastmodifiedDate = SimpleDateFormat('d. MMM yyyy').parse(lastmodified, ParsePosition(0))
         return lastmodifiedDate
-
 
     ###########################################################
     ## Discovery on Windows
@@ -692,7 +702,7 @@ class FileMonitor:
     # The document is then linked to the parentOSH (id its not None), if createDir is set to 1, it will
     # create a Directory OSH and link to it.
     ###########################################################
-    def getFilesWindows(self, parentOSH, folder, searchFileName = None):
+    def getFilesWindows(self, parentOSH, folder, searchFileName=None):
         if parentOSH is None:
             if self.hostOSH is not None:
                 parentOSH = self.hostOSH
@@ -705,18 +715,18 @@ class FileMonitor:
         else:
             logger.debug('File name is ', searchFileName)
 
-        dir_command = 'dir \"%s\" /Q /-C' %  folder
+        dir_command = 'dir \"%s\" /Q /-C' % folder
 
         if self.recursive:
             dir_command = dir_command + ' /s'
 
-        dir_res = self.shellUtils.execCmd( dir_command )#@@CMD_PERMISION shell protocol execution
-        logger.debug('dir command result=%s' %dir_res)
+        dir_res = self.shellUtils.execCmd(dir_command)  # @@CMD_PERMISION shell protocol execution
+        logger.debug('dir command result=%s' % dir_res)
 
         if dir_res == None or dir_res.find(self.strWindowsCanotFind) >= 0:
             logger.debug('failed getting folder ', folder, ' - ', dir_res)
             return
-        #dir_res = stripNtcmdHeaders(result)
+        # dir_res = stripNtcmdHeaders(result)
 
         if dir_res.find(self.strWindowsDirectoryOf) == -1:
             logger.debug('failed getting folder ', folder, ' - ', dir_res)
@@ -736,11 +746,11 @@ class FileMonitor:
                 directory = directoryBuffer.group(1).strip()
                 continue
 
-#            dirStartIndex =line.find(self.strWindowsDirectoryOf)
-#            if dirStartIndex >= 0:
-#                tmp = (line[dirStartIndex+dirOfLen:])
-#                directory = str(tmp[0:tmp.find('\n')].strip())
-#                continue
+            #            dirStartIndex =line.find(self.strWindowsDirectoryOf)
+            #            if dirStartIndex >= 0:
+            #                tmp = (line[dirStartIndex+dirOfLen:])
+            #                directory = str(tmp[0:tmp.find('\n')].strip())
+            #                continue
 
             if (not self.recursive) and line.find(self.strWindowsFiles) >= 0:
                 break
@@ -780,15 +790,15 @@ class FileMonitor:
                 name = fullName
                 if idx > 0:
                     name = fullName[:idx]
-                    extension = fullName[idx+1:]
+                    extension = fullName[idx + 1:]
                 else:
                     extension = ''
             else:
                 name = None
                 extension = None
                 try:
-                    name = fileStr.substring(0,idx)
-                    extension = fileStr.substring(idx+1,fileStr.length())
+                    name = fileStr.substring(0, idx)
+                    extension = fileStr.substring(idx + 1, fileStr.length())
                 except:
                     if (name == None and extension == None):
                         name = fileStr
@@ -816,10 +826,10 @@ class FileMonitor:
             # 07/24/2002 02:00 10000 BUILTIN\Administrators sfc.exe
 
             if notEmptyTokens[2] != self.strWindowsAm and notEmptyTokens[2] != self.strWindowsPm:
-#                lastmodified = notEmptyTokens[0].strip() + ' ' + notEmptyTokens[1].strip()
+                #                lastmodified = notEmptyTokens[0].strip() + ' ' + notEmptyTokens[1].strip()
                 size = notEmptyTokens[2].strip()
             else:
-#                lastmodified = notEmptyTokens[0].strip() + ' ' + notEmptyTokens[1].strip() + ' ' + notEmptyTokens[2].strip()
+                #                lastmodified = notEmptyTokens[0].strip() + ' ' + notEmptyTokens[1].strip() + ' ' + notEmptyTokens[2].strip()
                 size = notEmptyTokens[3].strip()
 
             lastmodifiedDate = getFileLastModificationTime(self.shellUtils, str(directory) + '\\' + fullName)
@@ -836,19 +846,21 @@ class FileMonitor:
             # Get permissions (attributes)
             permissions = ''
             attrib_command = "attrib " + '"' + str(directory) + '\\' + (fullName) + '"'
-            attrib_res = self.shellUtils.execCmd( attrib_command )#@@CMD_PERMISION shell protocol execution
-            #attrib_res = stripNtcmdHeaders(attrib_res)
+            attrib_res = self.shellUtils.execCmd(attrib_command)  # @@CMD_PERMISION shell protocol execution
+            # attrib_res = stripNtcmdHeaders(attrib_res)
             pattern = Pattern(self.regWindowsPermissions, REFlags.DOTALL)
             match = pattern.matcher(attrib_res)
             if match.find() == 1:
                 permissions = match.group(1)
 
-#            lastmodifiedDate = self.parseWindowsDate(lastmodified)
+            #            lastmodifiedDate = self.parseWindowsDate(lastmodified)
 
             if searchFileName != None:
-                return self.buildConfigFileByFullName(parentOSH, '\\',directory,name,extension,lastmodifiedDate,size,owner,permissions)
+                return self.buildConfigFileByFullName(parentOSH, '\\', directory, name, extension, lastmodifiedDate,
+                                                      size, owner, permissions)
             else:
-                self.buildDocument(parentOSH, '\\',directory,name,extension,lastmodifiedDate,size,owner,permissions)
+                self.buildDocument(parentOSH, '\\', directory, name, extension, lastmodifiedDate, size, owner,
+                                   permissions)
 
     ##########################################
     # Parameters- (path: the path to test)
@@ -860,9 +872,9 @@ class FileMonitor:
         logger.debug('WINDOWS: Check if path is valid ', path)
 
         file_exist_cmd = '(if EXIST %s (echo 0) else (echo 1))' % path
-        res = self.shellUtils.execCmd( file_exist_cmd )#@@CMD_PERMISION shell protocol execution
-        if (res == None)  or (res.strip() != '0'):
-#        if dir_res == None or dir_res.find(self.strWindowsCanotFind) >= 0 or dir_res.find(self.strWindowsFileNotFound) >= 0:
+        res = self.shellUtils.execCmd(file_exist_cmd)  # @@CMD_PERMISION shell protocol execution
+        if (res == None) or (res.strip() != '0'):
+            #        if dir_res == None or dir_res.find(self.strWindowsCanotFind) >= 0 or dir_res.find(self.strWindowsFileNotFound) >= 0:
             logger.debug('failed getting folder ', path, ' - result: ', res)
             return 0
         return 1
@@ -877,18 +889,18 @@ class FileMonitor:
             lastmodified = lastmodified + token + ' '
 
         lastmodified = lastmodified.strip()
-        lastmodifiedDate = SimpleDateFormat('dd/MM/yyyy HH:mm').parse(lastmodified,ParsePosition(0))
+        lastmodifiedDate = SimpleDateFormat('dd/MM/yyyy HH:mm').parse(lastmodified, ParsePosition(0))
         if lastmodifiedDate is None:
-            lastmodifiedDate = SimpleDateFormat('dd.MM.yyyy HH:mm').parse(lastmodified,ParsePosition(0))
+            lastmodifiedDate = SimpleDateFormat('dd.MM.yyyy HH:mm').parse(lastmodified, ParsePosition(0))
 
         if lastmodifiedDate is not None:
             if lastmodified.find(self.strWindowsLowerP) > 0 or lastmodified.find(self.strWindowsUpperP) > 0:
                 millesecs = lastmodifiedDate.getTime()
-                lastmodifiedDate = Date(millesecs + 12*60*60*1000)
+                lastmodifiedDate = Date(millesecs + 12 * 60 * 60 * 1000)
         return lastmodifiedDate
 
     def stripNtcmdHeaders(self, data):
-        pattern = Pattern('Connecting to remote service ... Ok(.*)Remote command returned 0',REFlags.DOTALL)
+        pattern = Pattern('Connecting to remote service ... Ok(.*)Remote command returned 0', REFlags.DOTALL)
         match = pattern.matcher(data)
         if match.find() == 1:
             return string.strip(match.group(1))
@@ -898,8 +910,8 @@ class FileMonitor:
     # safe sudo cat verifies that cat command does not contain file redirection character
     # file redirection should never happen but its possible if XML files being parsed are corrupted
     # we must guarantee that MAM will never redirect sudo cat in any circumstance to avoid creating or corrupting files
-    def safecat(self, path, useSudo = 0):
-        return self.shellUtils.safecat(path,useSudo)
+    def safecat(self, path, useSudo=0):
+        return self.shellUtils.safecat(path, useSudo)
 
     def getContent(self, path):
         """Retrieves content of the file.
@@ -918,13 +930,13 @@ class FileMonitor:
             logger.warn('Illegal cat command, contains redirect: [%s]' % path)
             raise ValueError, 'Illegal cat command, contains redirect'
 
-        #Don't think its normal
-        #path = self.normalizePath(path)
+        # Don't think its normal
+        # path = self.normalizePath(path)
 
         if self.shellUtils.isWinOs():
             cmd = 'type %s' % path
             self.shellUtils.lastExecutedCommand = cmd
-            fileContents = self.shellUtils.execCmd(cmd)#@@CMD_PERMISION shell protocol execution
+            fileContents = self.shellUtils.execCmd(cmd)  # @@CMD_PERMISION shell protocol execution
             if not self.shellUtils.getLastCmdReturnCode():
                 return fileContents
             else:
@@ -933,7 +945,7 @@ class FileMonitor:
         else:
             cmd = 'cat %s' % path
             self.shellUtils.lastExecutedCommand = cmd
-            fileContents = self.shellUtils.execCmd(cmd)#@@CMD_PERMISION shell protocol execution
+            fileContents = self.shellUtils.execCmd(cmd)  # @@CMD_PERMISION shell protocol execution
             if not self.shellUtils.getLastCmdReturnCode():
                 return fileContents
             else:
@@ -980,8 +992,9 @@ class FileMonitor:
                 logger.debugException('Failed to load properties file:', path)
         return props
 
+
 class FileMonitorEx:
-    def __init__(self, Framework, OSHVResult, shellUtils = None):
+    def __init__(self, Framework, OSHVResult, shellUtils=None):
         self.Framework = Framework
         self.OSHVResult = OSHVResult
         self.shellUtils = shellUtils
@@ -1055,7 +1068,7 @@ class FileMonitorEx:
             return None
 
         parentDir = m.group(1)
-        parentDir = parentDir.replace('/', self.FileSeparator)  + self.FileSeparator
+        parentDir = parentDir.replace('/', self.FileSeparator) + self.FileSeparator
         return parentDir
 
     def allignPath(self, path):
@@ -1075,7 +1088,7 @@ class FileMonitorEx:
             return None
         return file[len(parentDir):]
 
-    def createCF(self, container, path, fileContent = None, fileNameToBe = None):
+    def createCF(self, container, path, fileContent=None, fileNameToBe=None):
         logger.debug('Creating configuration file ', path)
         if fileContent is None:
             fileContent = self.fileMonitor.getFileContent(path)
@@ -1084,10 +1097,11 @@ class FileMonitorEx:
         fileName = fileNameToBe
         if fileName is None:
             fileName = self.getFileName(path)
-        configFileOsh = modeling.createConfigurationDocumentOSH(fileName, path, fileContent, container, None, None, None, None, 'UTF-8')
+        configFileOsh = modeling.createConfigurationDocumentOSH(fileName, path, fileContent, container, None, None,
+                                                                None, None, 'UTF-8')
         return configFileOsh
 
-    def loadXmlFile(self, path, container = None, fileContent = None):
+    def loadXmlFile(self, path, container=None, fileContent=None):
         'str, osh, str -> Document'
         saxBuilder = SAXBuilder()
         globalSettings = GeneralSettingsConfigFile.getInstance()

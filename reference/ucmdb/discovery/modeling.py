@@ -1,35 +1,34 @@
-#coding=utf-8
+# coding=utf-8
 """
 This library helps in creating common classes and links
 """
 
-import logger
-import netutils
 import re
 import string
-import ip_addr
-
 
 from appilog.common.system.defines import AppilogTypes
 from appilog.common.system.types import AttributeStateHolder, ObjectStateHolder
 from appilog.common.system.types.vectors import ObjectStateHolderVector, StringVector
-from appilog.common.utils.zip import ChecksumZipper
 from appilog.common.utils import IPv4
 from appilog.common.utils import RangeType
-
+from appilog.common.utils.zip import ChecksumZipper
 from com.hp.ucmdb.discovery.common import CollectorsConstants
+from com.hp.ucmdb.discovery.library.clients import ClientsConsts
+from com.hp.ucmdb.discovery.library.clients import ScriptsExecutionManager
 from com.hp.ucmdb.discovery.library.communication.downloader import ConfigFilesManagerImpl
 from com.hp.ucmdb.discovery.library.communication.downloader.cfgfiles import GeneralSettingsConfigFile
 from com.hp.ucmdb.discovery.library.communication.downloader.cfgfiles import PortInfo
 from com.hp.ucmdb.discovery.library.scope import DomainScopeManager
-from com.hp.ucmdb.discovery.library.clients import ClientsConsts
-from com.hp.ucmdb.discovery.library.clients import ScriptsExecutionManager
 from com.mercury.topaz.cmdb.shared.model.object.id import CmdbObjectID
-
 from java.lang import String
 from java.text import ParseException, SimpleDateFormat
 from java.util import Date, Locale, SimpleTimeZone
 from java.util.regex import Pattern
+
+import ip_addr
+import logger
+import netutils
+
 ############ MODELING CONSTANTS #######
 
 SERVICEADDRESS_TYPE_TCP = 1
@@ -63,52 +62,52 @@ MIME_TEXT_PLAIN = "text/plain"
 MIME_TEXT_XML = "text/xml"
 
 OS_TYPE_AND_CLASS_TO_OS_FAMILY_MAP = {
-                                  'linux': 'unix',
-                                  'xenserver': 'unix',
-                                  'red hat': 'unix',
-                                  'suse(linux)': 'unix',
-                                  'ubuntu(linux)': 'unix',
-                                  'red hat(linux)': 'unix',
-                                  'debian(linux)': 'unix',
-                                  'sunos': 'unix',
-                                  'freebsd': 'unix',
-                                  'aix': 'unix',
-                                  'unix': 'unix',
-                                  'nt': 'windows',
-                                  'windows': 'windows',
-                                  'vax': 'vax',
-                                  'hp-ux': 'unix',
-                                  'vmware_esx_server': 'baremetal_hypervisor',
-                                  'vmkernel': 'baremetal_hypervisor',
-                                  'ipar': 'mainframe',
-                                  'lpar': 'mainframe',
-                                  'mainframe': 'mainframe',
-                                  'darwin': 'unix',
-                                  'mac os x': 'unix',
-                                  'os x': 'unix',
-                            }
+    'linux': 'unix',
+    'xenserver': 'unix',
+    'red hat': 'unix',
+    'suse(linux)': 'unix',
+    'ubuntu(linux)': 'unix',
+    'red hat(linux)': 'unix',
+    'debian(linux)': 'unix',
+    'sunos': 'unix',
+    'freebsd': 'unix',
+    'aix': 'unix',
+    'unix': 'unix',
+    'nt': 'windows',
+    'windows': 'windows',
+    'vax': 'vax',
+    'hp-ux': 'unix',
+    'vmware_esx_server': 'baremetal_hypervisor',
+    'vmkernel': 'baremetal_hypervisor',
+    'ipar': 'mainframe',
+    'lpar': 'mainframe',
+    'mainframe': 'mainframe',
+    'darwin': 'unix',
+    'mac os x': 'unix',
+    'os x': 'unix',
+}
 
 databaseDataNames = {
-                'oracle': 'Oracle DB',
-                'sqlserver': 'MSSQL DB',
-                'db2_database': 'IBM DB2',
-                'db2_instance': 'IBM DB2 Instance',
-                'sybase': 'Sybase DB',
-                'maxdb': 'SAP MaxDB',
-                'hana_database': 'SAP HanaDB',
-                'hana_instance': 'SAP HanaDB',
-                'mysql': 'MySQL DB',
-                'postgresql': 'PostgreSQL'
-                }
+    'oracle': 'Oracle DB',
+    'sqlserver': 'MSSQL DB',
+    'db2_database': 'IBM DB2',
+    'db2_instance': 'IBM DB2 Instance',
+    'sybase': 'Sybase DB',
+    'maxdb': 'SAP MaxDB',
+    'hana_database': 'SAP HanaDB',
+    'hana_instance': 'SAP HanaDB',
+    'mysql': 'MySQL DB',
+    'postgresql': 'PostgreSQL'
+}
 
 STORAGE_ID_TO_STORAGE_TYPE = {
-                            0: OTHER_STORAGE_TYPE,
-                            1: NO_ROOT_DIRECTORY_STORAGE_TYPE,
-                            2: REMOVABLE_DISK_STORAGE_TYPE,
-                            3: FIXED_DISK_STORAGE_TYPE,
-                            4: NETWORK_DISK_STORAGE_TYPE,
-                            5: COMPACT_DISK_STORAGE_TYPE,
-                            6: RAM_STORAGE_TYPE}
+    0: OTHER_STORAGE_TYPE,
+    1: NO_ROOT_DIRECTORY_STORAGE_TYPE,
+    2: REMOVABLE_DISK_STORAGE_TYPE,
+    3: FIXED_DISK_STORAGE_TYPE,
+    4: NETWORK_DISK_STORAGE_TYPE,
+    5: COMPACT_DISK_STORAGE_TYPE,
+    6: RAM_STORAGE_TYPE}
 
 SCANNER_DISK_TYPE_TO_STORAGE_TYPE = {
     'Local hard disk': FIXED_DISK_STORAGE_TYPE,
@@ -118,7 +117,7 @@ SCANNER_DISK_TYPE_TO_STORAGE_TYPE = {
     'Floppy': FLOPPY_DISK_STORAGE_TYPE}
 
 applicationNameToProductNameMap = {
-        #DB servers
+    # DB servers
     'Oracle DB': 'oracle_database',
     'SAP MaxDB': 'maxdb',
     'SAP HanaDB': 'hana_database',
@@ -128,23 +127,23 @@ applicationNameToProductNameMap = {
     'Sybase DB': 'sybase_database',
     'MySQL DB': 'mysql_database',
     'PostgreSQL': 'postgresql_database',
-        #App servers
+    # App servers
     'JBoss AS': 'jboss_application_server',
     'Oracle iAS': 'oraclei_application_server',
     'WebLogic AS': 'weblogic_application_server',
     'WebSphere AS': 'websphere_application_server',
     'Glassfish AS': 'glassfish_application_server',
     'Jetty WebServer': 'jetty_application_server',
-        #Web servers
+    # Web servers
     'Microsoft IIS WebServer': 'iis_web_server',
     'Apache WebServer': 'apache_web_server',
     'Apache Tomcat': 'tomcat_web_server',
-        #clusters
+    # clusters
     'Microsoft Cluster SW': 'microsoft_cluster',
     'HP Service Guard Cluster SW': 'service_guard_cluster',
     'Veritas Cluster SW': 'veritas_cluster',
     'Red Hat Cluster Suite': 'redhat_cluster',
-        #SAP
+    # SAP
     'SAP ABAP Central Services': 'abap_sap_central_services',
     'SAP ABAP Application Server': 'sap_abap_application_server',
     'SAP J2EE Central Services': 'j2ee_sap_central_services',
@@ -152,18 +151,18 @@ applicationNameToProductNameMap = {
     'SAP ITS Manager': 'sap_its_agate',
     'SAP Message Server': 'sap_message_server',
     'SAP Enqueue Server': 'sap_enqueue_server',
-        #Siebel
+    # Siebel
     'Siebel Server': 'siebel_application_server',
     'Siebel Gateway Name Server': 'siebel_gateway',
-        #Virtualization
+    # Virtualization
     'Virtualization Layer Software': 'vmware_hypervisor',
     'VMware VirtualCenter': 'vmware_virtual_center',
     'Microsoft Hyper-V Hypervisor': 'microsoft_hypervisor',
     'IBM HMC': 'ibm_hardware_management_console',
-        # Virtualization - Oracle
+    # Virtualization - Oracle
     'Oracle VM Manager': 'oracle_vm_manager',
     'Oracle VM Agent': 'oracle_vm_agent',
-        #Other
+    # Other
     'Microsoft Exchange Server': 'microsoft_exchange_server',
     'IBM WebSphere MQ': 'ibm_websphere_mq',
     'Active Directory Application Mode': 'active_directory_application_mode',
@@ -171,536 +170,539 @@ applicationNameToProductNameMap = {
     'DomainController': 'domain_controller'}
 
 applicationTypeToDiscoveredProductNameMap = {
-                # SAP
-                'abap_sap_central_services': 'SAP ABAP Central Services',
-                'j2ee_sap_central_services': 'SAP J2EE Central Services',
-                'sap_r3_server': 'SAP ABAP Application Server',
-                'sap_j2ee_app_server': 'SAP J2EE Application Server',
-                'sap_message_server': 'SAP Message Server',
-                'sap_enqueue_server': 'SAP Enqueue Server',
+    # SAP
+    'abap_sap_central_services': 'SAP ABAP Central Services',
+    'j2ee_sap_central_services': 'SAP J2EE Central Services',
+    'sap_r3_server': 'SAP ABAP Application Server',
+    'sap_j2ee_app_server': 'SAP J2EE Application Server',
+    'sap_message_server': 'SAP Message Server',
+    'sap_enqueue_server': 'SAP Enqueue Server',
 
-                    #Siebel
-                'siebel_app_server': 'Siebel Server',
-                'siebel_gateway': 'Siebel Gateway Name Server'
-                }
+    # Siebel
+    'siebel_app_server': 'Siebel Server',
+    'siebel_gateway': 'Siebel Gateway Name Server'
+}
 
 CLASSES_80_TO_BDM = {'host': 'node',
-                'clusteredservice': 'cluster_resource_group',
-                'clustergroup': 'cluster_resource_group_config',
-                'clusterresource': 'cluster_resource_config',
-                'hostresource': 'node_element',
-                'service': 'windows_service',
-                'logicalvolume': 'logical_volume',
-                'disk': 'file_system',
-                'software': 'installed_software',
-                'ipserver': 'ip_service_endpoint',
-                'url': 'uri_endpoint',
-                'application': 'running_software',
-                'failoverclustersoftware': 'cluster_software',
-                'dnsserver': 'dns_server',
-                'webserver': 'web_server',
-                'networkresource': 'network_entity',
-                'network': 'ip_subnet',
-                'ip': 'ip_address',
-                'applicationsystem': 'application_system',
-                'document': 'configuration_document',
-                'configfile': 'configuration_document',
-                'failovercluster': 'failover_cluster',
-                'port': 'physical_port',
-                'networkshare': 'file_system_export',
-                'business': 'business_element',
-                'logical_service': 'service',
-                'business_service_for_catalog': 'business_service',
-                'logical_application': 'business_application',
-                'business_unit': 'organization',
-                'line_of_business': 'business_function',
-                'member': 'membership',
-                'depend': 'dependency',
-                'clientserver': 'client_server',
-                'depends_on': 'usage',
-                'use': 'usage',
-                'run': 'execution_environment',
-                'owner': 'ownership',
-                'potentially_run': 'ownership',
-                'container_f': 'composition',
-                'logical_group': 'ci_collection',
-                'it_world_links': 'managed_relationship',
-                'contains': 'containment',
-                'contained': 'containment',
-                'system': 'infrastructure_element',
-                'it_world': 'configuration_item'}
+                     'clusteredservice': 'cluster_resource_group',
+                     'clustergroup': 'cluster_resource_group_config',
+                     'clusterresource': 'cluster_resource_config',
+                     'hostresource': 'node_element',
+                     'service': 'windows_service',
+                     'logicalvolume': 'logical_volume',
+                     'disk': 'file_system',
+                     'software': 'installed_software',
+                     'ipserver': 'ip_service_endpoint',
+                     'url': 'uri_endpoint',
+                     'application': 'running_software',
+                     'failoverclustersoftware': 'cluster_software',
+                     'dnsserver': 'dns_server',
+                     'webserver': 'web_server',
+                     'networkresource': 'network_entity',
+                     'network': 'ip_subnet',
+                     'ip': 'ip_address',
+                     'applicationsystem': 'application_system',
+                     'document': 'configuration_document',
+                     'configfile': 'configuration_document',
+                     'failovercluster': 'failover_cluster',
+                     'port': 'physical_port',
+                     'networkshare': 'file_system_export',
+                     'business': 'business_element',
+                     'logical_service': 'service',
+                     'business_service_for_catalog': 'business_service',
+                     'logical_application': 'business_application',
+                     'business_unit': 'organization',
+                     'line_of_business': 'business_function',
+                     'member': 'membership',
+                     'depend': 'dependency',
+                     'clientserver': 'client_server',
+                     'depends_on': 'usage',
+                     'use': 'usage',
+                     'run': 'execution_environment',
+                     'owner': 'ownership',
+                     'potentially_run': 'ownership',
+                     'container_f': 'composition',
+                     'logical_group': 'ci_collection',
+                     'it_world_links': 'managed_relationship',
+                     'contains': 'containment',
+                     'contained': 'containment',
+                     'system': 'infrastructure_element',
+                     'it_world': 'configuration_item'}
 
 MIME_TYPES = {'3dm': 'x-world/x-3dmf',
-                '3dmf': 'x-world/x-3dmf',
-                'a': 'application/octet-stream',
-                'aab': 'application/x-authorware-bin',
-                'aam': 'application/x-authorware-map',
-                'aas': 'application/x-authorware-seg',
-                'abc': 'text/vnd.abc',
-                'acgi': 'text/html',
-                'afl': 'video/animaflex',
-                'ai': 'application/postscript',
-                'aif': 'audio/x-aiff',
-                'aifc': 'audio/x-aiff',
-                'aiff': 'audio/x-aiff',
-                'aim': 'application/x-aim',
-                'aip': 'text/x-audiosoft-intra',
-                'ani': 'application/x-navi-animation',
-                'aps': 'application/mime',
-                'arc': 'application/octet-stream',
-                'arj': 'application/octet-stream',
-                'art': 'image/x-jg',
-                'asf': 'video/x-ms-asf',
-                'asm': 'text/x-asm',
-                'asp': 'text/asp',
-                'asx': 'video/x-ms-asf',
-                'au': 'audio/x-au',
-                'avi': 'video/avi',
-                'avs': 'video/avs-video',
-                'bcpio': 'application/x-bcpio',
-                'bin': 'application/octet-stream',
-                'bm': 'image/bmp',
-                'bmp': 'image/bmp',
-                'boo': 'application/book',
-                'book': 'application/book',
-                'boz': 'application/x-bzip2',
-                'bsh': 'application/x-bsh',
-                'bz': 'application/x-bzip',
-                'bz2': 'application/x-bzip2',
-                'c': 'text/plain',
-                'c++': 'text/plain',
-                'cat': 'application/vnd.ms-pki.seccat',
-                'cc': 'text/plain',
-                'ccad': 'application/clariscad',
-                'cco': 'application/x-cocoa',
-                'cdf': 'application/cdf',
-                'cer': 'application/x-x509-ca-cert',
-                'cha': 'application/x-chat',
-                'chat': 'application/x-chat',
-                'class': 'application/java',
-                'com': 'application/octet-stream',
-                'conf': 'text/plain',
-                'cpio': 'application/x-cpio',
-                'cpp': 'text/x-c',
-                'cpt': 'application/x-compactpro',
-                'crl': 'application/pkcs-crl',
-                'crt': 'application/x-x509-ca-cert',
-                'csh': 'text/x-script.csh',
-                'css': 'text/css',
-                'cxx': 'text/plain',
-                'dcr': 'application/x-director',
-                'deepv': 'application/x-deepv',
-                'def': 'text/plain',
-                'der': 'application/x-x509-ca-cert',
-                'dif': 'video/x-dv',
-                'dir': 'application/x-director',
-                'dl': 'video/x-dl',
-                'doc': 'application/msword',
-                'dot': 'application/msword',
-                'dp': 'application/commonground',
-                'drw': 'application/drafting',
-                'dump': 'application/octet-stream',
-                'dv': 'video/x-dv',
-                'dvi': 'application/x-dvi',
-                'dwf': 'model/vnd.dwf',
-                'dwg': 'image/x-dwg',
-                'dxf': 'image/x-dwg',
-                'dxr': 'application/x-director',
-                'el': 'text/x-script.elisp',
-                'elc': 'application/x-elc',
-                'env': 'application/x-envoy',
-                'eps': 'application/postscript',
-                'es': 'application/x-esrehber',
-                'etx': 'text/x-setext',
-                'evy': 'application/x-envoy',
-                'exe': 'application/octet-stream',
-                'f': 'text/plain',
-                'f77': 'text/x-fortran',
-                'f90': 'text/plain',
-                'fdf': 'application/vnd.fdf',
-                'fif': 'image/fif',
-                'fli': 'video/x-fli',
-                'flo': 'image/florian',
-                'flx': 'text/vnd.fmi.flexstor',
-                'fmf': 'video/x-atomic3d-feature',
-                'for': 'text/plain',
-                'fpx': 'image/vnd.net-fpx',
-                'frl': 'application/freeloader',
-                'funk': 'audio/make',
-                'g': 'text/plain',
-                'g3': 'image/g3fax',
-                'gif': 'image/gif',
-                'gl': 'video/x-gl',
-                'gsd': 'audio/x-gsm',
-                'gsm': 'audio/x-gsm',
-                'gsp': 'application/x-gsp',
-                'gss': 'application/x-gss',
-                'gtar': 'application/x-gtar',
-                'gz': 'application/x-compressed',
-                'gzip': 'application/x-gzip',
-                'h': 'text/plain',
-                'hdf': 'application/x-hdf',
-                'help': 'application/x-helpfile',
-                'hgl': 'application/vnd.hp-hpgl',
-                'hh': 'text/plain',
-                'hlb': 'text/x-script',
-                'hlp': 'application/x-helpfile',
-                'hpg': 'application/vnd.hp-hpgl',
-                'hpgl': 'application/vnd.hp-hpgl',
-                'hqx': 'application/binhex',
-                'hta': 'application/hta',
-                'htc': 'text/x-component',
-                'htm': 'text/html',
-                'html': 'text/html',
-                'htmls': 'text/html',
-                'htt': 'text/webviewhtml',
-                'htx': 'text/html',
-                'ice': 'x-conference/x-cooltalk',
-                'ico': 'image/x-icon',
-                'idc': 'text/plain',
-                'ief': 'image/ief',
-                'iefs': 'image/ief',
-                'iges': 'application/iges',
-                'igs': 'application/iges',
-                'ima': 'application/x-ima',
-                'imap': 'application/x-httpd-imap',
-                'inf': 'text/plain',
-                'inf': 'application/inf',
-                'ins': 'application/x-internett-signup',
-                'ip': 'application/x-ip2',
-                'isu': 'video/x-isvideo',
-                'it': 'audio/it',
-                'iv': 'application/x-inventor',
-                'ivr': 'i-world/i-vrml',
-                'ivy': 'application/x-livescreen',
-                'jam': 'audio/x-jam',
-                'jav': 'text/plain',
-                'java': 'text/plain',
-                'jcm': 'application/x-java-commerce',
-                'jfif': 'image/jpeg',
-                'jfif-tbnl': 'image/jpeg',
-                'jpe': 'image/jpeg',
-                'jpeg': 'image/jpeg',
-                'jpg': 'image/jpeg',
-                'jps': 'image/x-jps',
-                'js': 'application/x-javascript',
-                'jut': 'image/jutvision',
-                'kar': 'audio/midi',
-                'ksh': 'text/x-script.ksh',
-                'la': 'audio/x-nspaudio',
-                'lam': 'audio/x-liveaudio',
-                'latex': 'application/x-latex',
-                'lha': 'application/octet-stream',
-                'lhx': 'application/octet-stream',
-                'list': 'text/plain',
-                'lma': 'audio/x-nspaudio',
-                'log': 'text/plain',
-                'lsp': 'text/x-script.lisp',
-                'lst': 'text/plain',
-                'lsx': 'text/x-la-asf',
-                'ltx': 'application/x-latex',
-                'lzh': 'application/octet-stream',
-                'lzx': 'application/octet-stream',
-                'm': 'text/plain',
-                'm1v': 'video/mpeg',
-                'm2a': 'audio/mpeg',
-                'm2v': 'video/mpeg',
-                'm3u': 'audio/x-mpequrl',
-                'man': 'application/x-troff-man',
-                'map': 'application/x-navimap',
-                'mar': 'text/plain',
-                'mbd': 'application/mbedlet',
-                'mc$': 'application/x-magic-cap-package-1.0',
-                'mcd': 'application/x-mathcad',
-                'mcf': 'text/mcf',
-                'mcp': 'application/netmc',
-                'me': 'application/x-troff-me',
-                'mht': 'message/rfc822',
-                'mhtml': 'message/rfc822',
-                'mid': 'audio/midi',
-                'midi': 'audio/midi',
-                'mif': 'application/x-frame',
-                'mime': 'www/mime',
-                'mjf': 'audio/x-vnd.audioexplosion.mjuicemediafile',
-                'mjpg': 'video/x-motion-jpeg',
-                'mm': 'application/base64',
-                'mme': 'application/base64',
-                'mod': 'audio/x-mod',
-                'moov': 'video/quicktime',
-                'mov': 'video/quicktime',
-                'movie': 'video/x-sgi-movie',
-                'mp2': 'video/mpeg',
-                'mp3': 'audio/mpeg3',
-                'mpa': 'audio/mpeg',
-                'mpc': 'application/x-project',
-                'mpe': 'video/mpeg',
-                'mpeg': 'video/mpeg',
-                'mpg': 'video/mpeg',
-                'mpga': 'audio/mpeg',
-                'mpp': 'application/vnd.ms-project',
-                'mpt': 'application/x-project',
-                'mpv': 'application/x-project',
-                'mpx': 'application/x-project',
-                'mrc': 'application/marc',
-                'ms': 'application/x-troff-ms',
-                'mv': 'video/x-sgi-movie',
-                'my': 'audio/make',
-                'mzz': 'application/x-vnd.audioexplosion.mzz',
-                'nap': 'image/naplps',
-                'naplps': 'image/naplps',
-                'nc': 'application/x-netcdf',
-                'ncm': 'application/vnd.nokia.configuration-message',
-                'nif': 'image/x-niff',
-                'niff': 'image/x-niff',
-                'nix': 'application/x-mix-transfer',
-                'nsc': 'application/x-conference',
-                'nvd': 'application/x-navidoc',
-                'o': 'application/octet-stream',
-                'oda': 'application/oda',
-                'omc': 'application/x-omc',
-                'omcd': 'application/x-omcdatamaker',
-                'omcr': 'application/x-omcregerator',
-                'p': 'text/x-pascal',
-                'p10': 'application/x-pkcs10',
-                'p12': 'application/x-pkcs12',
-                'p7a': 'application/x-pkcs7-signature',
-                'p7c': 'application/x-pkcs7-mime',
-                'p7m': 'application/x-pkcs7-mime',
-                'p7r': 'application/x-pkcs7-certreqresp',
-                'p7s': 'application/pkcs7-signature',
-                'part': 'application/pro_eng',
-                'pas': 'text/pascal',
-                'pbm': 'image/x-portable-bitmap',
-                'pcl': 'application/vnd.hp-pcl',
-                'pct': 'image/x-pict',
-                'pcx': 'image/x-pcx',
-                'pdb': 'chemical/x-pdb',
-                'pdf': 'application/pdf',
-                'pfunk': 'audio/make',
-                'pgm': 'image/x-portable-graymap',
-                'pic': 'image/pict',
-                'pict': 'image/pict',
-                'pkg': 'application/x-newton-compatible-pkg',
-                'pko': 'application/vnd.ms-pki.pko',
-                'pl': 'text/plain',
-                'plx': 'application/x-pixclscript',
-                'pm': 'image/x-xpixmap',
-                'pm4': 'application/x-pagemaker',
-                'pm5': 'application/x-pagemaker',
-                'png': 'image/png',
-                'pnm': 'image/x-portable-anymap',
-                'pot': 'application/vnd.ms-powerpoint',
-                'pov': 'model/x-pov',
-                'ppa': 'application/vnd.ms-powerpoint',
-                'ppm': 'image/x-portable-pixmap',
-                'pps': 'application/vnd.ms-powerpoint',
-                'ppt': 'application/vnd.ms-powerpoint',
-                'ppz': 'application/mspowerpoint',
-                'pre': 'application/x-freelance',
-                'prt': 'application/pro_eng',
-                'ps': 'application/postscript',
-                'psd': 'application/octet-stream',
-                'pvu': 'paleovu/x-pv',
-                'pwz': 'application/vnd.ms-powerpoint',
-                'py': 'text/x-script.phyton',
-                'pyc': 'applicaiton/x-bytecode.python',
-                'qcp': 'audio/vnd.qcelp',
-                'qd3': 'x-world/x-3dmf',
-                'qd3d': 'x-world/x-3dmf',
-                'qif': 'image/x-quicktime',
-                'qt': 'video/quicktime',
-                'qtc': 'video/x-qtc',
-                'qti': 'image/x-quicktime',
-                'qtif': 'image/x-quicktime',
-                'ra': 'audio/x-realaudio',
-                'ram': 'audio/x-pn-realaudio',
-                'ras': 'image/x-cmu-raster',
-                'rast': 'image/cmu-raster',
-                'rexx': 'text/x-script.rexx',
-                'rf': 'image/vnd.rn-realflash',
-                'rgb': 'image/x-rgb',
-                'rm': 'audio/x-pn-realaudio',
-                'rmi': 'audio/mid',
-                'rmm': 'audio/x-pn-realaudio',
-                'rmp': 'audio/x-pn-realaudio',
-                'rng': 'application/ringing-tones',
-                'rnx': 'application/vnd.rn-realplayer',
-                'roff': 'application/x-troff',
-                'rp': 'image/vnd.rn-realpix',
-                'rpm': 'audio/x-pn-realaudio-plugin',
-                'rt': 'text/richtext',
-                'rtf': 'text/richtext',
-                'rtx': 'text/richtext',
-                'rv': 'video/vnd.rn-realvideo',
-                's': 'text/x-asm',
-                's3m': 'audio/s3m',
-                'saveme': 'application/octet-stream',
-                'sbk': 'application/x-tbook',
-                'scm': 'video/x-scm',
-                'sdml': 'text/plain',
-                'sdp': 'application/x-sdp',
-                'sdr': 'application/sounder',
-                'sea': 'application/x-sea',
-                'set': 'application/set',
-                'sgm': 'text/sgml',
-                'sgml': 'text/sgml',
-                'sh': 'text/x-script.sh',
-                'shar': 'application/x-bsh',
-                'shtml': 'text/html',
-                'sid': 'audio/x-psid',
-                'sit': 'application/x-stuffit',
-                'skd': 'application/x-koan',
-                'skm': 'application/x-koan',
-                'skp': 'application/x-koan',
-                'skt': 'application/x-koan',
-                'sl': 'application/x-seelogo',
-                'smi': 'application/smil',
-                'smil': 'application/smil',
-                'snd': 'audio/x-adpcm',
-                'sol': 'application/solids',
-                'spc': 'text/x-speech',
-                'spl': 'application/futuresplash',
-                'spr': 'application/x-sprite',
-                'sprite': 'application/x-sprite',
-                'src': 'application/x-wais-source',
-                'ssi': 'text/x-server-parsed-html',
-                'ssm': 'application/streamingmedia',
-                'sst': 'application/vnd.ms-pki.certstore',
-                'step': 'application/step',
-                'stl': 'application/x-navistyle',
-                'stp': 'application/step',
-                'sv4cpio': 'application/x-sv4cpio',
-                'sv4crc': 'application/x-sv4crc',
-                'svf': 'image/x-dwg',
-                'svr': 'application/x-world',
-                'swf': 'application/x-shockwave-flash',
-                't': 'application/x-troff',
-                'talk': 'text/x-speech',
-                'tar': 'application/x-tar',
-                'tbk': 'application/x-tbook',
-                'tcl': 'text/x-script.tcl',
-                'tcsh': 'text/x-script.tcsh',
-                'tex': 'application/x-tex',
-                'texi': 'application/x-texinfo',
-                'texinfo': 'application/x-texinfo',
-                'text': 'text/plain',
-                'tgz': 'application/x-compressed',
-                'tif': 'image/x-tiff',
-                'tiff': 'image/x-tiff',
-                'tr': 'application/x-troff',
-                'tsi': 'audio/tsp-audio',
-                'tsp': 'application/dsptype',
-                'tsv': 'text/tab-separated-values',
-                'turbot': 'image/florian',
-                'txt': 'text/plain',
-                'uil': 'text/x-uil',
-                'uni': 'text/uri-list',
-                'unis': 'text/uri-list',
-                'unv': 'application/i-deas',
-                'uri': 'text/uri-list',
-                'uris': 'text/uri-list',
-                'ustar': 'application/x-ustar',
-                'uu': 'text/x-uuencode',
-                'uue': 'text/x-uuencode',
-                'vbs': 'text/vbs',
-                'vcd': 'application/x-cdlink',
-                'vcs': 'text/x-vcalendar',
-                'vda': 'application/vda',
-                'vdo': 'video/vdo',
-                'vew': 'application/groupwise',
-                'viv': 'video/vivo',
-                'vivo': 'video/vivo',
-                'vmd': 'application/vocaltec-media-desc',
-                'vmf': 'application/vocaltec-media-file',
-                'voc': 'audio/x-voc',
-                'vos': 'video/vosaic',
-                'vox': 'audio/voxware',
-                'vqe': 'audio/x-twinvq-plugin',
-                'vqf': 'audio/x-twinvq',
-                'vql': 'audio/x-twinvq-plugin',
-                'vrml': 'application/x-vrml',
-                'vrt': 'x-world/x-vrt',
-                'vsd': 'application/x-visio',
-                'vst': 'application/x-visio',
-                'vsw': 'application/x-visio',
-                'w60': 'application/wordperfect6.0',
-                'w61': 'application/wordperfect6.1',
-                'w6w': 'application/msword',
-                'wav': 'audio/x-wav',
-                'wb1': 'application/x-qpro',
-                'wbmp': 'image/vnd.wap.wbmp',
-                'web': 'application/vnd.xara',
-                'wiz': 'application/msword',
-                'wk1': 'application/x-123',
-                'wmf': 'windows/metafile',
-                'wml': 'text/vnd.wap.wml',
-                'wmlc': 'application/vnd.wap.wmlc',
-                'wmls': 'text/vnd.wap.wmlscript',
-                'wmlsc': 'application/vnd.wap.wmlscriptc',
-                'word': 'application/msword',
-                'wp': 'application/wordperfect',
-                'wp5': 'application/wordperfect',
-                'wp6': 'application/wordperfect',
-                'wpd': 'application/wordperfect',
-                'wq1': 'application/x-lotus',
-                'wri': 'application/x-wri',
-                'wrl': 'application/x-world',
-                'wrz': 'model/vrml',
-                'wsc': 'text/scriplet',
-                'wsrc': 'application/x-wais-source',
-                'wtk': 'application/x-wintalk',
-                'xbm': 'image/x-xbitmap',
-                'xdr': 'video/x-amt-demorun',
-                'xgz': 'xgl/drawing',
-                'xif': 'image/vnd.xiff',
-                'xl': 'application/excel',
-                'xla': 'application/x-msexcel',
-                'xlb': 'application/x-excel',
-                'xlc': 'application/x-excel',
-                'xld': 'application/x-excel',
-                'xlk': 'application/x-excel',
-                'xll': 'application/x-excel',
-                'xlm': 'application/x-excel',
-                'xls': 'application/x-msexcel',
-                'xlt': 'application/x-excel',
-                'xlv': 'application/x-excel',
-                'xlw': 'application/x-msexcel',
-                'xm': 'audio/xm',
-                'xml': 'text/xml',
-                'xmz': 'xgl/movie',
-                'xpix': 'application/x-vnd.ls-xpix',
-                'xpm': 'image/x-xpixmap',
-                'x-png': 'image/png',
-                'xsr': 'video/x-amt-showrun',
-                'xwd': 'image/x-xwindowdump',
-                'xyz': 'chemical/x-pdb',
-                'z': 'application/x-compressed',
-                'zip': 'application/x-compressed',
-                'zoo': 'application/octet-stream',
-                'zsh': 'text/x-script.zsh',
-                'ora': 'text/plain'
-                }
+              '3dmf': 'x-world/x-3dmf',
+              'a': 'application/octet-stream',
+              'aab': 'application/x-authorware-bin',
+              'aam': 'application/x-authorware-map',
+              'aas': 'application/x-authorware-seg',
+              'abc': 'text/vnd.abc',
+              'acgi': 'text/html',
+              'afl': 'video/animaflex',
+              'ai': 'application/postscript',
+              'aif': 'audio/x-aiff',
+              'aifc': 'audio/x-aiff',
+              'aiff': 'audio/x-aiff',
+              'aim': 'application/x-aim',
+              'aip': 'text/x-audiosoft-intra',
+              'ani': 'application/x-navi-animation',
+              'aps': 'application/mime',
+              'arc': 'application/octet-stream',
+              'arj': 'application/octet-stream',
+              'art': 'image/x-jg',
+              'asf': 'video/x-ms-asf',
+              'asm': 'text/x-asm',
+              'asp': 'text/asp',
+              'asx': 'video/x-ms-asf',
+              'au': 'audio/x-au',
+              'avi': 'video/avi',
+              'avs': 'video/avs-video',
+              'bcpio': 'application/x-bcpio',
+              'bin': 'application/octet-stream',
+              'bm': 'image/bmp',
+              'bmp': 'image/bmp',
+              'boo': 'application/book',
+              'book': 'application/book',
+              'boz': 'application/x-bzip2',
+              'bsh': 'application/x-bsh',
+              'bz': 'application/x-bzip',
+              'bz2': 'application/x-bzip2',
+              'c': 'text/plain',
+              'c++': 'text/plain',
+              'cat': 'application/vnd.ms-pki.seccat',
+              'cc': 'text/plain',
+              'ccad': 'application/clariscad',
+              'cco': 'application/x-cocoa',
+              'cdf': 'application/cdf',
+              'cer': 'application/x-x509-ca-cert',
+              'cha': 'application/x-chat',
+              'chat': 'application/x-chat',
+              'class': 'application/java',
+              'com': 'application/octet-stream',
+              'conf': 'text/plain',
+              'cpio': 'application/x-cpio',
+              'cpp': 'text/x-c',
+              'cpt': 'application/x-compactpro',
+              'crl': 'application/pkcs-crl',
+              'crt': 'application/x-x509-ca-cert',
+              'csh': 'text/x-script.csh',
+              'css': 'text/css',
+              'cxx': 'text/plain',
+              'dcr': 'application/x-director',
+              'deepv': 'application/x-deepv',
+              'def': 'text/plain',
+              'der': 'application/x-x509-ca-cert',
+              'dif': 'video/x-dv',
+              'dir': 'application/x-director',
+              'dl': 'video/x-dl',
+              'doc': 'application/msword',
+              'dot': 'application/msword',
+              'dp': 'application/commonground',
+              'drw': 'application/drafting',
+              'dump': 'application/octet-stream',
+              'dv': 'video/x-dv',
+              'dvi': 'application/x-dvi',
+              'dwf': 'model/vnd.dwf',
+              'dwg': 'image/x-dwg',
+              'dxf': 'image/x-dwg',
+              'dxr': 'application/x-director',
+              'el': 'text/x-script.elisp',
+              'elc': 'application/x-elc',
+              'env': 'application/x-envoy',
+              'eps': 'application/postscript',
+              'es': 'application/x-esrehber',
+              'etx': 'text/x-setext',
+              'evy': 'application/x-envoy',
+              'exe': 'application/octet-stream',
+              'f': 'text/plain',
+              'f77': 'text/x-fortran',
+              'f90': 'text/plain',
+              'fdf': 'application/vnd.fdf',
+              'fif': 'image/fif',
+              'fli': 'video/x-fli',
+              'flo': 'image/florian',
+              'flx': 'text/vnd.fmi.flexstor',
+              'fmf': 'video/x-atomic3d-feature',
+              'for': 'text/plain',
+              'fpx': 'image/vnd.net-fpx',
+              'frl': 'application/freeloader',
+              'funk': 'audio/make',
+              'g': 'text/plain',
+              'g3': 'image/g3fax',
+              'gif': 'image/gif',
+              'gl': 'video/x-gl',
+              'gsd': 'audio/x-gsm',
+              'gsm': 'audio/x-gsm',
+              'gsp': 'application/x-gsp',
+              'gss': 'application/x-gss',
+              'gtar': 'application/x-gtar',
+              'gz': 'application/x-compressed',
+              'gzip': 'application/x-gzip',
+              'h': 'text/plain',
+              'hdf': 'application/x-hdf',
+              'help': 'application/x-helpfile',
+              'hgl': 'application/vnd.hp-hpgl',
+              'hh': 'text/plain',
+              'hlb': 'text/x-script',
+              'hlp': 'application/x-helpfile',
+              'hpg': 'application/vnd.hp-hpgl',
+              'hpgl': 'application/vnd.hp-hpgl',
+              'hqx': 'application/binhex',
+              'hta': 'application/hta',
+              'htc': 'text/x-component',
+              'htm': 'text/html',
+              'html': 'text/html',
+              'htmls': 'text/html',
+              'htt': 'text/webviewhtml',
+              'htx': 'text/html',
+              'ice': 'x-conference/x-cooltalk',
+              'ico': 'image/x-icon',
+              'idc': 'text/plain',
+              'ief': 'image/ief',
+              'iefs': 'image/ief',
+              'iges': 'application/iges',
+              'igs': 'application/iges',
+              'ima': 'application/x-ima',
+              'imap': 'application/x-httpd-imap',
+              'inf': 'text/plain',
+              'inf': 'application/inf',
+              'ins': 'application/x-internett-signup',
+              'ip': 'application/x-ip2',
+              'isu': 'video/x-isvideo',
+              'it': 'audio/it',
+              'iv': 'application/x-inventor',
+              'ivr': 'i-world/i-vrml',
+              'ivy': 'application/x-livescreen',
+              'jam': 'audio/x-jam',
+              'jav': 'text/plain',
+              'java': 'text/plain',
+              'jcm': 'application/x-java-commerce',
+              'jfif': 'image/jpeg',
+              'jfif-tbnl': 'image/jpeg',
+              'jpe': 'image/jpeg',
+              'jpeg': 'image/jpeg',
+              'jpg': 'image/jpeg',
+              'jps': 'image/x-jps',
+              'js': 'application/x-javascript',
+              'jut': 'image/jutvision',
+              'kar': 'audio/midi',
+              'ksh': 'text/x-script.ksh',
+              'la': 'audio/x-nspaudio',
+              'lam': 'audio/x-liveaudio',
+              'latex': 'application/x-latex',
+              'lha': 'application/octet-stream',
+              'lhx': 'application/octet-stream',
+              'list': 'text/plain',
+              'lma': 'audio/x-nspaudio',
+              'log': 'text/plain',
+              'lsp': 'text/x-script.lisp',
+              'lst': 'text/plain',
+              'lsx': 'text/x-la-asf',
+              'ltx': 'application/x-latex',
+              'lzh': 'application/octet-stream',
+              'lzx': 'application/octet-stream',
+              'm': 'text/plain',
+              'm1v': 'video/mpeg',
+              'm2a': 'audio/mpeg',
+              'm2v': 'video/mpeg',
+              'm3u': 'audio/x-mpequrl',
+              'man': 'application/x-troff-man',
+              'map': 'application/x-navimap',
+              'mar': 'text/plain',
+              'mbd': 'application/mbedlet',
+              'mc$': 'application/x-magic-cap-package-1.0',
+              'mcd': 'application/x-mathcad',
+              'mcf': 'text/mcf',
+              'mcp': 'application/netmc',
+              'me': 'application/x-troff-me',
+              'mht': 'message/rfc822',
+              'mhtml': 'message/rfc822',
+              'mid': 'audio/midi',
+              'midi': 'audio/midi',
+              'mif': 'application/x-frame',
+              'mime': 'www/mime',
+              'mjf': 'audio/x-vnd.audioexplosion.mjuicemediafile',
+              'mjpg': 'video/x-motion-jpeg',
+              'mm': 'application/base64',
+              'mme': 'application/base64',
+              'mod': 'audio/x-mod',
+              'moov': 'video/quicktime',
+              'mov': 'video/quicktime',
+              'movie': 'video/x-sgi-movie',
+              'mp2': 'video/mpeg',
+              'mp3': 'audio/mpeg3',
+              'mpa': 'audio/mpeg',
+              'mpc': 'application/x-project',
+              'mpe': 'video/mpeg',
+              'mpeg': 'video/mpeg',
+              'mpg': 'video/mpeg',
+              'mpga': 'audio/mpeg',
+              'mpp': 'application/vnd.ms-project',
+              'mpt': 'application/x-project',
+              'mpv': 'application/x-project',
+              'mpx': 'application/x-project',
+              'mrc': 'application/marc',
+              'ms': 'application/x-troff-ms',
+              'mv': 'video/x-sgi-movie',
+              'my': 'audio/make',
+              'mzz': 'application/x-vnd.audioexplosion.mzz',
+              'nap': 'image/naplps',
+              'naplps': 'image/naplps',
+              'nc': 'application/x-netcdf',
+              'ncm': 'application/vnd.nokia.configuration-message',
+              'nif': 'image/x-niff',
+              'niff': 'image/x-niff',
+              'nix': 'application/x-mix-transfer',
+              'nsc': 'application/x-conference',
+              'nvd': 'application/x-navidoc',
+              'o': 'application/octet-stream',
+              'oda': 'application/oda',
+              'omc': 'application/x-omc',
+              'omcd': 'application/x-omcdatamaker',
+              'omcr': 'application/x-omcregerator',
+              'p': 'text/x-pascal',
+              'p10': 'application/x-pkcs10',
+              'p12': 'application/x-pkcs12',
+              'p7a': 'application/x-pkcs7-signature',
+              'p7c': 'application/x-pkcs7-mime',
+              'p7m': 'application/x-pkcs7-mime',
+              'p7r': 'application/x-pkcs7-certreqresp',
+              'p7s': 'application/pkcs7-signature',
+              'part': 'application/pro_eng',
+              'pas': 'text/pascal',
+              'pbm': 'image/x-portable-bitmap',
+              'pcl': 'application/vnd.hp-pcl',
+              'pct': 'image/x-pict',
+              'pcx': 'image/x-pcx',
+              'pdb': 'chemical/x-pdb',
+              'pdf': 'application/pdf',
+              'pfunk': 'audio/make',
+              'pgm': 'image/x-portable-graymap',
+              'pic': 'image/pict',
+              'pict': 'image/pict',
+              'pkg': 'application/x-newton-compatible-pkg',
+              'pko': 'application/vnd.ms-pki.pko',
+              'pl': 'text/plain',
+              'plx': 'application/x-pixclscript',
+              'pm': 'image/x-xpixmap',
+              'pm4': 'application/x-pagemaker',
+              'pm5': 'application/x-pagemaker',
+              'png': 'image/png',
+              'pnm': 'image/x-portable-anymap',
+              'pot': 'application/vnd.ms-powerpoint',
+              'pov': 'model/x-pov',
+              'ppa': 'application/vnd.ms-powerpoint',
+              'ppm': 'image/x-portable-pixmap',
+              'pps': 'application/vnd.ms-powerpoint',
+              'ppt': 'application/vnd.ms-powerpoint',
+              'ppz': 'application/mspowerpoint',
+              'pre': 'application/x-freelance',
+              'prt': 'application/pro_eng',
+              'ps': 'application/postscript',
+              'psd': 'application/octet-stream',
+              'pvu': 'paleovu/x-pv',
+              'pwz': 'application/vnd.ms-powerpoint',
+              'py': 'text/x-script.phyton',
+              'pyc': 'applicaiton/x-bytecode.python',
+              'qcp': 'audio/vnd.qcelp',
+              'qd3': 'x-world/x-3dmf',
+              'qd3d': 'x-world/x-3dmf',
+              'qif': 'image/x-quicktime',
+              'qt': 'video/quicktime',
+              'qtc': 'video/x-qtc',
+              'qti': 'image/x-quicktime',
+              'qtif': 'image/x-quicktime',
+              'ra': 'audio/x-realaudio',
+              'ram': 'audio/x-pn-realaudio',
+              'ras': 'image/x-cmu-raster',
+              'rast': 'image/cmu-raster',
+              'rexx': 'text/x-script.rexx',
+              'rf': 'image/vnd.rn-realflash',
+              'rgb': 'image/x-rgb',
+              'rm': 'audio/x-pn-realaudio',
+              'rmi': 'audio/mid',
+              'rmm': 'audio/x-pn-realaudio',
+              'rmp': 'audio/x-pn-realaudio',
+              'rng': 'application/ringing-tones',
+              'rnx': 'application/vnd.rn-realplayer',
+              'roff': 'application/x-troff',
+              'rp': 'image/vnd.rn-realpix',
+              'rpm': 'audio/x-pn-realaudio-plugin',
+              'rt': 'text/richtext',
+              'rtf': 'text/richtext',
+              'rtx': 'text/richtext',
+              'rv': 'video/vnd.rn-realvideo',
+              's': 'text/x-asm',
+              's3m': 'audio/s3m',
+              'saveme': 'application/octet-stream',
+              'sbk': 'application/x-tbook',
+              'scm': 'video/x-scm',
+              'sdml': 'text/plain',
+              'sdp': 'application/x-sdp',
+              'sdr': 'application/sounder',
+              'sea': 'application/x-sea',
+              'set': 'application/set',
+              'sgm': 'text/sgml',
+              'sgml': 'text/sgml',
+              'sh': 'text/x-script.sh',
+              'shar': 'application/x-bsh',
+              'shtml': 'text/html',
+              'sid': 'audio/x-psid',
+              'sit': 'application/x-stuffit',
+              'skd': 'application/x-koan',
+              'skm': 'application/x-koan',
+              'skp': 'application/x-koan',
+              'skt': 'application/x-koan',
+              'sl': 'application/x-seelogo',
+              'smi': 'application/smil',
+              'smil': 'application/smil',
+              'snd': 'audio/x-adpcm',
+              'sol': 'application/solids',
+              'spc': 'text/x-speech',
+              'spl': 'application/futuresplash',
+              'spr': 'application/x-sprite',
+              'sprite': 'application/x-sprite',
+              'personal': 'application/x-wais-source',
+              'ssi': 'text/x-server-parsed-html',
+              'ssm': 'application/streamingmedia',
+              'sst': 'application/vnd.ms-pki.certstore',
+              'step': 'application/step',
+              'stl': 'application/x-navistyle',
+              'stp': 'application/step',
+              'sv4cpio': 'application/x-sv4cpio',
+              'sv4crc': 'application/x-sv4crc',
+              'svf': 'image/x-dwg',
+              'svr': 'application/x-world',
+              'swf': 'application/x-shockwave-flash',
+              't': 'application/x-troff',
+              'talk': 'text/x-speech',
+              'tar': 'application/x-tar',
+              'tbk': 'application/x-tbook',
+              'tcl': 'text/x-script.tcl',
+              'tcsh': 'text/x-script.tcsh',
+              'tex': 'application/x-tex',
+              'texi': 'application/x-texinfo',
+              'texinfo': 'application/x-texinfo',
+              'text': 'text/plain',
+              'tgz': 'application/x-compressed',
+              'tif': 'image/x-tiff',
+              'tiff': 'image/x-tiff',
+              'tr': 'application/x-troff',
+              'tsi': 'audio/tsp-audio',
+              'tsp': 'application/dsptype',
+              'tsv': 'text/tab-separated-values',
+              'turbot': 'image/florian',
+              'txt': 'text/plain',
+              'uil': 'text/x-uil',
+              'uni': 'text/uri-list',
+              'unis': 'text/uri-list',
+              'unv': 'application/i-deas',
+              'uri': 'text/uri-list',
+              'uris': 'text/uri-list',
+              'ustar': 'application/x-ustar',
+              'uu': 'text/x-uuencode',
+              'uue': 'text/x-uuencode',
+              'vbs': 'text/vbs',
+              'vcd': 'application/x-cdlink',
+              'vcs': 'text/x-vcalendar',
+              'vda': 'application/vda',
+              'vdo': 'video/vdo',
+              'vew': 'application/groupwise',
+              'viv': 'video/vivo',
+              'vivo': 'video/vivo',
+              'vmd': 'application/vocaltec-media-desc',
+              'vmf': 'application/vocaltec-media-file',
+              'voc': 'audio/x-voc',
+              'vos': 'video/vosaic',
+              'vox': 'audio/voxware',
+              'vqe': 'audio/x-twinvq-plugin',
+              'vqf': 'audio/x-twinvq',
+              'vql': 'audio/x-twinvq-plugin',
+              'vrml': 'application/x-vrml',
+              'vrt': 'x-world/x-vrt',
+              'vsd': 'application/x-visio',
+              'vst': 'application/x-visio',
+              'vsw': 'application/x-visio',
+              'w60': 'application/wordperfect6.0',
+              'w61': 'application/wordperfect6.1',
+              'w6w': 'application/msword',
+              'wav': 'audio/x-wav',
+              'wb1': 'application/x-qpro',
+              'wbmp': 'image/vnd.wap.wbmp',
+              'web': 'application/vnd.xara',
+              'wiz': 'application/msword',
+              'wk1': 'application/x-123',
+              'wmf': 'windows/metafile',
+              'wml': 'text/vnd.wap.wml',
+              'wmlc': 'application/vnd.wap.wmlc',
+              'wmls': 'text/vnd.wap.wmlscript',
+              'wmlsc': 'application/vnd.wap.wmlscriptc',
+              'word': 'application/msword',
+              'wp': 'application/wordperfect',
+              'wp5': 'application/wordperfect',
+              'wp6': 'application/wordperfect',
+              'wpd': 'application/wordperfect',
+              'wq1': 'application/x-lotus',
+              'wri': 'application/x-wri',
+              'wrl': 'application/x-world',
+              'wrz': 'model/vrml',
+              'wsc': 'text/scriplet',
+              'wsrc': 'application/x-wais-source',
+              'wtk': 'application/x-wintalk',
+              'xbm': 'image/x-xbitmap',
+              'xdr': 'video/x-amt-demorun',
+              'xgz': 'xgl/drawing',
+              'xif': 'image/vnd.xiff',
+              'xl': 'application/excel',
+              'xla': 'application/x-msexcel',
+              'xlb': 'application/x-excel',
+              'xlc': 'application/x-excel',
+              'xld': 'application/x-excel',
+              'xlk': 'application/x-excel',
+              'xll': 'application/x-excel',
+              'xlm': 'application/x-excel',
+              'xls': 'application/x-msexcel',
+              'xlt': 'application/x-excel',
+              'xlv': 'application/x-excel',
+              'xlw': 'application/x-msexcel',
+              'xm': 'audio/xm',
+              'xml': 'text/xml',
+              'xmz': 'xgl/movie',
+              'xpix': 'application/x-vnd.ls-xpix',
+              'xpm': 'image/x-xpixmap',
+              'x-png': 'image/png',
+              'xsr': 'video/x-amt-showrun',
+              'xwd': 'image/x-xwindowdump',
+              'xyz': 'chemical/x-pdb',
+              'z': 'application/x-compressed',
+              'zip': 'application/x-compressed',
+              'zoo': 'application/octet-stream',
+              'zsh': 'text/x-script.zsh',
+              'ora': 'text/plain'
+              }
 
 TCP_PROTOCOL = PortInfo.TCP_PROTOCOL
 UDP_PROTOCOL = PortInfo.UDP_PROTOCOL
+
 
 def parseMySQLVersionforApplication(version):
     formate1 = "Distrib (.*?),"
     formate2 = "(.*?)[-|\s]{1}"
     valid = "[0-9.]*"
-    if re.findall(formate1,version):
-        finstr= re.findall(formate1,version)[0]
-    elif re.findall(formate2,version):
-        finstr = re.findall(formate2,version)[0]
+    if re.findall(formate1, version):
+        finstr = re.findall(formate1, version)[0]
+    elif re.findall(formate2, version):
+        finstr = re.findall(formate2, version)[0]
     else:
         finstr = version
     return finstr
+
 
 class NetworkInterface:
     """
     This class represents Network interface
     @deprecated: use networking.Interface instead
     """
+
     def __init__(self, description, physicalAddress, ips=None,
                  subnetMasks=None, interfaceIndex=None, dhcpEnabled=0,
                  interfaceClass="interface"):
@@ -738,8 +740,8 @@ def _toFloatOrNone(floatString):
 
 
 def createDiskOSH(containerHost, dataName, type,  # @ReservedAssignment
-                    size=None, failures=None, name=None, usedSize=None,
-                    mountPoint=None, fileSystemType=None, ciType="disk"):
+                  size=None, failures=None, name=None, usedSize=None,
+                  mountPoint=None, fileSystemType=None, ciType="disk"):
     """
         Creates an C{ObjectStateHolder} class that represents a disk.
         This method uses may return None in case type is not an allowed storage type.
@@ -800,7 +802,6 @@ def createDiskOSH(containerHost, dataName, type,  # @ReservedAssignment
     return diskOSH
 
 
-
 def createFileSystemOSH(containerHostOSH, mountPoint, diskType,
                         labelName=None, mountDevice=None, fileSystemType=None,
                         size=None, usedSize=None, failures=None):
@@ -837,7 +838,7 @@ def createFileSystemOSH(containerHostOSH, mountPoint, diskType,
 
     fileSystemOSH = ObjectStateHolder('file_system')
     fileSystemOSH.setContainer(containerHostOSH)
-    fileSystemOSH.setStringAttribute('mount_point', mountPoint)   # id attribute
+    fileSystemOSH.setStringAttribute('mount_point', mountPoint)  # id attribute
 
     if storageType:
         fileSystemOSH.setAttribute('disk_type', storageType)
@@ -875,7 +876,7 @@ def isAllowedStorageType(storageType):
     globalSettings = GeneralSettingsConfigFile.getInstance()
 
     discoveredStorageTypesString = globalSettings.getPropertyStringValue('discoveredStorageTypes', '')
-#    discoveredStorageTypesString = globalSettings.getPropertyStringValue(CollectorsConstants.TAG_DISCOVERED_STORAGE_TYPES, '')
+    #    discoveredStorageTypesString = globalSettings.getPropertyStringValue(CollectorsConstants.TAG_DISCOVERED_STORAGE_TYPES, '')
     return isIncludedToList(discoveredStorageTypesString, storageType)
 
 
@@ -891,7 +892,9 @@ def createInterfacesOSHV(networkInterfaces, containerHostOSH=None):
     """
     oshv = ObjectStateHolderVector()
     for interface in networkInterfaces:
-        osh = createInterfaceOSH(interface.macAddress, containerHostOSH, interface.description, interface.interfaceIndex, interface.type, interface.adminStatus, interface.adminStatus, interface.speed, interface.name, interface.alias, interface.className)
+        osh = createInterfaceOSH(interface.macAddress, containerHostOSH, interface.description,
+                                 interface.interfaceIndex, interface.type, interface.adminStatus, interface.adminStatus,
+                                 interface.speed, interface.name, interface.alias, interface.className)
         if osh is not None:
             interface.osh = osh
             oshv.add(osh)
@@ -908,7 +911,8 @@ def isValidInterface(mac, description=None, name=None):
     @deprecated: Logic is not obvious
     """
     NNM_PSEUDO_INTERFACE_PREFIX = 'ZZZZ'
-    isValid = mac is not None and (netutils.isValidMac(mac) or str(mac).isdigit() or mac.startswith(NNM_PSEUDO_INTERFACE_PREFIX))
+    isValid = mac is not None and (
+                netutils.isValidMac(mac) or str(mac).isdigit() or mac.startswith(NNM_PSEUDO_INTERFACE_PREFIX))
     if not isValid:
         if _CMDB_CLASS_MODEL.version() >= 9:
             isValid = name or description
@@ -916,9 +920,9 @@ def isValidInterface(mac, description=None, name=None):
 
 
 def createInterfaceOSH(mac, hostOSH=None, description=None, index=None,
-                         type=None, adminStatus=None,  # @ReservedAssignment
-                         operStatus=None, speed=None, name=None, alias=None,
-                         reportInterfaceName = True, interfaceClass="interface"):
+                       type=None, adminStatus=None,  # @ReservedAssignment
+                       operStatus=None, speed=None, name=None, alias=None,
+                       reportInterfaceName=True, interfaceClass="interface"):
     """
      Creates an C{ObjectStateHolder} based on the interface at the specified address. Throws
      @param mac: the MAC address of the interface, or the interface index or the interface description
@@ -935,7 +939,7 @@ def createInterfaceOSH(mac, hostOSH=None, description=None, index=None,
     try:
         mac = netutils.parseMac(mac)
     except:
-        #logger.debug('Failed parsing incorrect mac %s' % mac)
+        # logger.debug('Failed parsing incorrect mac %s' % mac)
         mac = None
     # mac can also be an interface#
     if netutils.isValidMac(mac):
@@ -943,7 +947,7 @@ def createInterfaceOSH(mac, hostOSH=None, description=None, index=None,
         interface.setStringAttribute('interface_macaddr', mac)
     elif mac in netutils._IGNORED_INTERFACE_MACS:
         return None
-    #interface has a virtual mac so it's a virtual one
+    # interface has a virtual mac so it's a virtual one
     elif netutils.isVirtualMac(mac):
         interface.setStringAttribute('mac_address', mac)
         interface.setBoolAttribute('isvirtual', 1)
@@ -952,10 +956,10 @@ def createInterfaceOSH(mac, hostOSH=None, description=None, index=None,
         interface.addAttributeToList(roleAttribute)
         name = name or description
     elif not name:
-        #we have to have or mac_address or interface_name since they define reconciliation rules
-        #logger.warn("Reported network interface with invalid macaddress and with no name")
+        # we have to have or mac_address or interface_name since they define reconciliation rules
+        # logger.warn("Reported network interface with invalid macaddress and with no name")
         if description is None:
-            #logger.warn("Reported network interface with invalid macaddress and with no name or description. Interface not created")
+            # logger.warn("Reported network interface with invalid macaddress and with no name or description. Interface not created")
             return None
         else:
             name = description
@@ -1031,8 +1035,8 @@ def createInterfaceOSH(mac, hostOSH=None, description=None, index=None,
 
 
 def createLinkOSH(className, end1, end2):
-#~~~ What does className refer to, the type of link, or of the endpoints?
-#~~~ Why: @param className: the name of the link to create  Is it the link name or the className
+    # ~~~ What does className refer to, the type of link, or of the endpoints?
+    # ~~~ Why: @param className: the name of the link to create  Is it the link name or the className
     """
     Creates an C{ObjectStateHolder} class that represents a link.
     The link must be a valid link according to the class model.
@@ -1202,7 +1206,7 @@ def addHostAttributes(uh_obj, osName=None, machineName=None, machineBootDate=Non
 
 def createHostOSH(ipAddress, hostClassName="node", osName=None,
                   machineName=None, machineBootDate=None, filter_client_ip=None):
-#~~~ In what ways is the node not complete? Just missing node key?
+    # ~~~ In what ways is the node not complete? Just missing node key?
     """
     Creates a node OSH with its associated IP Address, operation system name. and machine name.
     The created node is not complete>
@@ -1280,7 +1284,8 @@ def __isAllowedInterface(interfaceDescription):
         return 0
 
     ignoreLocalizedIinterfacePatternFilter = []
-    ignoreLocalizedString = GeneralSettingsConfigFile.getInstance().getPropertyStringValue('ignoreLocalizedVirtualInterfacesPatternList', '')
+    ignoreLocalizedString = GeneralSettingsConfigFile.getInstance().getPropertyStringValue(
+        'ignoreLocalizedVirtualInterfacesPatternList', '')
     ignoreLocalizedIinterfacePatternFilter.extend(IGNORE_INTERFACE_PATTERN_FILTER)
     if ignoreLocalizedString:
         ignoreLocalizedIinterfacePatternFilter.extend(ignoreLocalizedString.split(','))
@@ -1289,19 +1294,22 @@ def __isAllowedInterface(interfaceDescription):
             return 0
 
     if __isVMWareInterface(interfaceDescription):
-        ignoreVmwareInterfaces = GeneralSettingsConfigFile.getInstance().getPropertyIntegerValue('ignoreVmwareInterfaces', 1)
+        ignoreVmwareInterfaces = GeneralSettingsConfigFile.getInstance().getPropertyIntegerValue(
+            'ignoreVmwareInterfaces', 1)
         if ignoreVmwareInterfaces == 2:
-            logger.debug('VMWare interface are configured to be ignored, based on ignoreVmwareInterfaces global parameter:', ignoreVmwareInterfaces)
+            logger.debug(
+                'VMWare interface are configured to be ignored, based on ignoreVmwareInterfaces global parameter:',
+                ignoreVmwareInterfaces)
             return 0
     return 1
 
 
 def __isKnownHost(hostKey, existingMacs, discoveredMacs):
-    #check whether the Host Key is in the retrieved interfaces list:
+    # check whether the Host Key is in the retrieved interfaces list:
     if hostKey in discoveredMacs:
         return 1
 
-    #check whether at least one physical MAC was already discovered
+    # check whether at least one physical MAC was already discovered
     if existingMacs and existingMacs != "NA":
         for existingMac in existingMacs:
             if existingMac in discoveredMacs:
@@ -1309,11 +1317,11 @@ def __isKnownHost(hostKey, existingMacs, discoveredMacs):
 
 
 def createCompleteHostOSHByInterfaceList(hostClass, interfaceList,
-                                              osName=None, machineName=None,
-                                              machineBootDate=None,
-                                              host_cmdbid=None, host_key=None,
-                                              host_macs=None,
-                                              ucmdb_version=None):
+                                         osName=None, machineName=None,
+                                         machineBootDate=None,
+                                         host_cmdbid=None, host_key=None,
+                                         host_macs=None,
+                                         ucmdb_version=None):
     """
     Returns the minimal valid mac address to be used as key for the node.
     A valid mac is one that passed isValidMac() method.
@@ -1351,17 +1359,17 @@ def createCompleteHostOSHByInterfaceList(hostClass, interfaceList,
 
     if len(macList) > 0:
         if ucmdb_version < 9 and host_cmdbid and host_cmdbid != 'NA' and __isKnownHost(host_key, host_macs, allMacs):
-            #node Key is in the interfaces Mac list, restore from the UCMDB-ID
+            # node Key is in the interfaces Mac list, restore from the UCMDB-ID
             hostOsh = createOshByCmdbIdString(hostClass, host_cmdbid)
             hostOsh.setBoolAttribute('host_iscomplete', 1)
             addHostAttributes(hostOsh, osName, machineName, machineBootDate)
             return hostOsh
 
-        #Choosing node key as minimal physical MAC address
+        # Choosing node key as minimal physical MAC address
         hostKey = min(macList)
         return createCompleteHostOSH(hostClass, hostKey, osName, machineName, machineBootDate)
     elif len(listVMmacList) > 0:
-        #Choosing node key as minimal virtual MAC address
+        # Choosing node key as minimal virtual MAC address
         hostKey = min(listVMmacList)
         return createCompleteHostOSH(hostClass, hostKey, osName, machineName)
     elif len(allMacs) > 0:
@@ -1432,26 +1440,27 @@ def createCFOSH(filename, extension, path, filecontent, containerOSH=None, descr
     """
     if extension:
         filename = filename + '.' + extension
-    return createConfigurationDocumentOSH(filename, path, filecontent, containerOSH, None, None, description, None, charsetName)
+    return createConfigurationDocumentOSH(filename, path, filecontent, containerOSH, None, None, description, None,
+                                          charsetName)
 
 
 def createConfigurationDocumentOshByFile(configFile, containerOsh,
-                                              contentType=None,
-                                              description=None,
-                                              charsetName=None):
-        configFileOsh = createConfigurationDocumentOSH(
-                           configFile.getName(), configFile.path,
-                           configFile.content,
-                           containerOsh, contentType,
-                           configFile.lastModificationTime(),
-                           description,
-                           configFile.version, charsetName
-                        )
-        if configFile.owner:
-            configFileOsh.setAttribute('document_osowner', configFile.owner)
-        if configFile.permissions():
-            configFileOsh.setAttribute('document_permissions', configFile.permissions())
-        return configFileOsh
+                                         contentType=None,
+                                         description=None,
+                                         charsetName=None):
+    configFileOsh = createConfigurationDocumentOSH(
+        configFile.getName(), configFile.path,
+        configFile.content,
+        containerOsh, contentType,
+        configFile.lastModificationTime(),
+        description,
+        configFile.version, charsetName
+    )
+    if configFile.owner:
+        configFileOsh.setAttribute('document_osowner', configFile.owner)
+    if configFile.permissions():
+        configFileOsh.setAttribute('document_permissions', configFile.permissions())
+    return configFileOsh
 
 
 def createConfigurationDocumentOSH(name, path, content, containerOSH=None, contentType=None,
@@ -1529,7 +1538,8 @@ def createConfigurationDocumentOSH(name, path, content, containerOSH=None, conte
 class _ProcessDo:
     """Class represents Process Data Object - process with all its attributes"""
 
-    def __init__(self, name, commandline, pid=None, path=None, parameters=None, user=None, startuptime=None, description=None):
+    def __init__(self, name, commandline, pid=None, path=None, parameters=None, user=None, startuptime=None,
+                 description=None):
         self.name = name
         self.commandline = commandline
         self.pid = pid
@@ -1545,6 +1555,7 @@ class _ProcessMatcher:
 
     class Rule:
         """Base class for process matching rule"""
+
         def __init__(self):
             pass
 
@@ -1557,6 +1568,7 @@ class _ProcessMatcher:
         Currently works for String properties or properties that can be converted to String.
         Will raise exception if defined property is not found.
         """
+
         def __init__(self, targetProperty, pattern, flags=0):
             _ProcessMatcher.Rule.__init__(self)
             self.targetProperty = targetProperty
@@ -1593,6 +1605,7 @@ class _ProcessModifier:
 
     class Rule:
         """Base class for process modification rule."""
+
         def __init__(self):
             pass
 
@@ -1604,6 +1617,7 @@ class _ProcessModifier:
         Modifier that performs string substitution in process string proeprty.
         Will raise exception if target property is not found.
         """
+
         def __init__(self, targetProperty, pattern, replacement):
             _ProcessModifier.Rule.__init__(self)
             self.targetProperty = targetProperty
@@ -1648,11 +1662,14 @@ class _ProcessSanitizer:
 
     MATCHER_TO_MODIFIER_MAP = {
         _ProcessMatcher().byName(r"smcgui\.exe"): _ProcessModifier().replaceInCommandline(r"\s*\\\\\.\\pipe\\\w+", ""),
-        _ProcessMatcher().byName(r"w3wp\.exe"): _ProcessModifier().replaceInCommandline(r"\s+-a\s+\\\\\.\\pipe\\[\w-]+", ""),
-        _ProcessMatcher().byName(r"vmware-vmx(\.exe)?"): _ProcessModifier().replaceInCommandline(r"\s+-@\s+\"pipe=\\\\\.\\pipe\\.+?\"", ""),
-        _ProcessMatcher().byName(r"AppleMobileDeviceHelper\.exe"): _ProcessModifier().replaceInCommandline(r"\s+--pipe\s+\\\\\.\\pipe\\[\w-]+", ""),
+        _ProcessMatcher().byName(r"w3wp\.exe"): _ProcessModifier().replaceInCommandline(r"\s+-a\s+\\\\\.\\pipe\\[\w-]+",
+                                                                                        ""),
+        _ProcessMatcher().byName(r"vmware-vmx(\.exe)?"): _ProcessModifier().replaceInCommandline(
+            r"\s+-@\s+\"pipe=\\\\\.\\pipe\\.+?\"", ""),
+        _ProcessMatcher().byName(r"AppleMobileDeviceHelper\.exe"): _ProcessModifier().replaceInCommandline(
+            r"\s+--pipe\s+\\\\\.\\pipe\\[\w-]+", ""),
         _ProcessMatcher().byName(r"EdgeTransport\.exe"): _EXCHANGE_MODIFIER,
-        #pop3, imap4 processes
+        # pop3, imap4 processes
         _ProcessMatcher().byName(r"Microsoft.Exchange\.\w+\.exe"): _EXCHANGE_MODIFIER,
         _ProcessMatcher().byName(r"CITRIX\.exe"): _ProcessModifier().replaceInCommandline(r"\s+--lmgrd_start\s+\w+", "")
     }
@@ -1692,7 +1709,8 @@ def createProcessOSH(name, hostOSH, process_cmdline=None, process_pid=None,
                 process_cmdline = None
                 process_parameters = None
 
-    processDo = _ProcessDo(name, process_cmdline, process_pid, process_path, process_parameters, process_user, process_startuptime, procDescription)
+    processDo = _ProcessDo(name, process_cmdline, process_pid, process_path, process_parameters, process_user,
+                           process_startuptime, procDescription)
 
     _ProcessSanitizer().sanitize(processDo)
 
@@ -1743,10 +1761,10 @@ def createUrlOsh(hostOsh, url, type=None):  # @ReservedAssignment
     @return: a new ObjectStateHolder instance
     @rtype: ObjectStateHolder
     """
-#    if not url:
-#        raise ValueError, "Key attribute Url is missing."
-#    if not hostOsh:
-#        raise ValueError, "Key attribute Host is missing."
+    #    if not url:
+    #        raise ValueError, "Key attribute Url is missing."
+    #    if not hostOsh:
+    #        raise ValueError, "Key attribute Host is missing."
 
     urlOsh = ObjectStateHolder('url')
     urlOsh.setAttribute('data_name', url)
@@ -1756,7 +1774,7 @@ def createUrlOsh(hostOsh, url, type=None):  # @ReservedAssignment
 
 
 def createServiceAddressOsh(hostOSH, ip, portNumber, portType,
-                               portName=None):
+                            portName=None):
     """
     @deprecated:
     Use a combination of the following classes instead:
@@ -1888,8 +1906,8 @@ def createDatabaseOSH(dbType, dbName, dbPort, ip, hostOSH, credentialsID=None,
     # QCCR1H112169 (cont) Enhanced Discovery for MySQL by Host Application by Shell (VW)
     if appVersion and 'MariaDB' in str(appVersion):
         databaseOSH.setAttribute("name", 'MariaDB')
-        databaseOSH.setAttribute("data_name","Maria DB")
-        databaseOSH.setAttribute("discovered_product_name","Maria DB")
+        databaseOSH.setAttribute("data_name", "Maria DB")
+        databaseOSH.setAttribute("discovered_product_name", "Maria DB")
     if dbType == 'mysql' and appVersion != None and appVersion != 'NA':
         databaseOSH.setAttribute('application_version', parseMySQLVersionforApplication(appVersion))
 
@@ -1911,8 +1929,8 @@ def createWebServerOSH(serverType, port, configfile, hostOSH, isIHS, serverVersi
     data_name = serverType
     vendor = None
     webServerConfigFile = None
-    if(string.find(serverType, 'IBM_HTTP') >= 0 or
-       string.find(serverType, 'IBM HTTP') >= 0 or isIHS):
+    if (string.find(serverType, 'IBM_HTTP') >= 0 or
+            string.find(serverType, 'IBM HTTP') >= 0 or isIHS):
         if configfile != None and configfile != '' and configfile != 'N/A':
             serverClass = 'ibmhttpserver'
             webServerConfigFile = configfile
@@ -2053,6 +2071,7 @@ class __J2eeServerDefinition:
         self.name = name
         self.vendor = vendor
 
+
 __J2EE_SERVERS = {
     'glassfish': __J2eeServerDefinition('glassfishas', 'Glassfish AS', 'oracle_corp'),
     'jboss': __J2eeServerDefinition('jbossas', 'JBoss AS', 'jboss_group_llc'),
@@ -2067,6 +2086,7 @@ class __AppServerTypeDefinition:
         self.app_server_type = StringVector()
         for app_server_type in type_list:
             self.app_server_type.add(app_server_type)
+
 
 __J2EE_APP_SERVER = __AppServerTypeDefinition(['j2ee'])
 __SAP_ABAP_APP_SERVER = __AppServerTypeDefinition(['sap'])
@@ -2217,13 +2237,14 @@ def createClusterSoftwareOSH(hostOSH, clustName, version=None, vendor=None):
         vendor = 'hewlett_packard_co'
 
     clusterSoftware = createApplicationOSH('failoverclustersoftware',
-                                       clustName, hostOSH, category, vendor)
+                                           clustName, hostOSH, category, vendor)
     if version:
         clusterSoftware.setAttribute('application_version', version)
     return clusterSoftware
 
 
-def createCpuOsh(cid, hostOsh, speed=None, coreNumber=None, vendor=None, descr=None, data_name=None, logicalProcessorCount=None, hyperThread=None):
+def createCpuOsh(cid, hostOsh, speed=None, coreNumber=None, vendor=None, descr=None, data_name=None,
+                 logicalProcessorCount=None, hyperThread=None):
     '''Creates CPU OSH by specified cid and node container
     str, ObjectStateHolder[, long(speed MHz), int(coreNumber), str, str, str] -> ObjectStateHolder
     @param cid: cid - key attribute
@@ -2259,6 +2280,7 @@ def createCpuOsh(cid, hostOsh, speed=None, coreNumber=None, vendor=None, descr=N
         cpuOsh.setAttribute('hyper_thread', hyperThread)
 
     return cpuOsh
+
 
 ACTIVE_DIRECTORY_DOMAIN_CIT = 'activedirectorydomain'
 DOMAIN_CONTROLLER_CIT = 'domaincontroller'
@@ -2347,6 +2369,7 @@ class CmdbClassModel:
         1. Using class model file, stored on probe (till UCMDB 9)
         2. Class model with changes (for UCMDB 9) obtained from service in Framework
     '''
+
     def __init__(self, framework=None):
         '''
         If framework instance is not specified - used one registered for
@@ -2402,19 +2425,20 @@ class CmdbClassModel:
         Otherwise using Framework service (available since 8.04)
         @return: Truth or False value
         '''
-        #check CMDB 8.* - get class model definition, located at the Probe
+        # check CMDB 8.* - get class model definition, located at the Probe
         if self.getAttributeDefinition(citName, attributeName):
             return 1
-        #try to check CMDB v9 (according to BDM changes)
+        # try to check CMDB v9 (according to BDM changes)
         try:
             if self.__getFramework().getClassModelServices().IsAttributeExist(citName, attributeName):
                 return 1
         except:
             pass
-#            logger.debugException("Failed to check attribute '%s' for class '%s'" % (attributeName, citName))
+
+    #            logger.debugException("Failed to check attribute '%s' for class '%s'" % (attributeName, citName))
 
     def setAttributeIfExists(self, osh, attributeName, attributeValue,
-                                attributeTypeStr=AppilogTypes.STRING_DEF):
+                             attributeTypeStr=AppilogTypes.STRING_DEF):
         'osh, str, object, attribute type -> bool'
         if self.isExistingAttribute(osh.getObjectClass(), attributeName):
             if attributeTypeStr is not None:
@@ -2429,6 +2453,7 @@ class CmdbClassModel:
         if not self.__version:
             self.__version = logger.Version().getVersion(self.__getFramework())
         return self.__version
+
 
 _CMDB_CLASS_MODEL = CmdbClassModel()
 '''@deprecated methods'''
@@ -2548,6 +2573,7 @@ def createDhcpOsh(dhcpServerIp, dhcpHostOsh):
 
 class StaticMethod:
     'Class that represents static method'
+
     def __init__(self, callable_):
         self.__call__ = self.callable = callable_
 
@@ -2603,6 +2629,7 @@ class RoleDefinition:
 
 class OshClassEntryFilter(RoleDefinition.Filter):
     'Defines whether OSH class is among owners'
+
     def __init__(self, *appropriateClasses):
         self.appropriateClasses = appropriateClasses
 
@@ -2648,6 +2675,7 @@ class HostBuilder(OshBuilder):
         return self.osh
 
     'methods setAs* are deprecated, use setRole method instead'
+
     def setAsDesktop(self, isDesktop):
         return self.setRole(HostRoleEnum.DESKTOP, isDesktop)
 
@@ -2677,9 +2705,9 @@ class HostBuilder(OshBuilder):
 
             globalSettings = GeneralSettingsConfigFile.getInstance()
             desktopOperationalSystems = globalSettings.getPropertyStringValue(
-                                        CollectorsConstants.TAG_DESKTOP_OPERATING_SYSTEMS, '')
+                CollectorsConstants.TAG_DESKTOP_OPERATING_SYSTEMS, '')
             serverOperationalSystems = globalSettings.getPropertyStringValue(
-                                        CollectorsConstants.TAG_SERVER_OPERATING_SYSTEMS, '')
+                CollectorsConstants.TAG_SERVER_OPERATING_SYSTEMS, '')
             if isMatchedByRegexpList(desktopOperationalSystems, osName):
                 self.setRole(HostRoleEnum.DESKTOP)
             elif isMatchedByRegexpList(serverOperationalSystems, osName):
@@ -2700,6 +2728,7 @@ class HostBuilder(OshBuilder):
             self.osh.addAttributeToList(roleAttribute)
         return self
 
+
 '''
 @see Documentation for module methods that are used as
 parameter for __BuilderStaticMethod
@@ -2716,23 +2745,27 @@ def createLayer2ConnectionWithLinks(macList, parentSwitch, localInterface=None):
     if macList:
         macList.sort()
         layer2Connection_id = ''
-        #create local to switch topology part new style if localInterface Do is defined
+        # create local to switch topology part new style if localInterface Do is defined
         if localInterface:
             hostOsh = parentSwitch.hostOSH
-            interfOsh = createInterfaceOSH(localInterface.ifMac, hostOsh, localInterface.ifDescr, localInterface.ifIndex, localInterface.ifType, localInterface.ifAdminStatus, localInterface.ifOperStatus, localInterface.ifSpeed, localInterface.ifName, localInterface.ifAlias)
+            interfOsh = createInterfaceOSH(localInterface.ifMac, hostOsh, localInterface.ifDescr,
+                                           localInterface.ifIndex, localInterface.ifType, localInterface.ifAdminStatus,
+                                           localInterface.ifOperStatus, localInterface.ifSpeed, localInterface.ifName,
+                                           localInterface.ifAlias)
             if interfOsh:
                 layer2Connection_id += localInterface.ifMac + ":"
                 linkOsh = createLinkOSH('member', layer2Osh, interfOsh)
                 oshv.add(hostOsh)
                 oshv.add(interfOsh)
                 oshv.add(linkOsh)
-        #create remote topology part (and local part old style if no interfaceDo defined - left for backward compatibility with NNM)
+        # create remote topology part (and local part old style if no interfaceDo defined - left for backward compatibility with NNM)
         for mac in macList:
             hostOsh = None
             if mac and mac.strip():
                 macAddress = mac
                 if mac.find('.') > 0:
-                    macAddress = (''.join([re.findall('..$', hex(int(x)).upper())[0] for  x in mac.split('.')]).replace('X', '0'))
+                    macAddress = (
+                        ''.join([re.findall('..$', hex(int(x)).upper())[0] for x in mac.split('.')]).replace('X', '0'))
                     hostOsh = createCompleteHostOSH('node', macAddress)
                 else:
                     hostOsh = parentSwitch.hostOSH
@@ -2759,6 +2792,7 @@ class PathExtractor:
     Class is stateless and can be used in multiple extracts.
     When extraction fails exception is raised.
     """
+
     def __init__(self):
         self.__replacements = {r"/+": r"\\"}
         self.__modifiers = [
@@ -2827,11 +2861,14 @@ class PathExtractor:
                 pass
         raise ValueError("Failed to extract the path from '%s'" % inputString)
 
+
 SERVICE_DESCRIPTION_MAX_LENGTH = 1000
 SERVICE_COMMAND_LINE_MAX_LENGTH = 2500
 
 
-def createServiceOSH(hostOsh, serviceName, serviceDescr, serviceCommand, serviceStartType=None, serviceOperatingStatus=None, serviceCanBePaused=None, serviceCanBeUninstalled=None, serviceStartUser=None, name=None):
+def createServiceOSH(hostOsh, serviceName, serviceDescr, serviceCommand, serviceStartType=None,
+                     serviceOperatingStatus=None, serviceCanBePaused=None, serviceCanBeUninstalled=None,
+                     serviceStartUser=None, name=None):
     '''Creates Windows Service OSH by specified service name and node container
     @types: hostOsh, str, str, str[, str, str, str, str, str] -> serviceOsh
     '''
@@ -2842,7 +2879,7 @@ def createServiceOSH(hostOsh, serviceName, serviceDescr, serviceCommand, service
         serviceOsh.setAttribute("service_name", name)
 
     if serviceDescr != None:
-        if(len(serviceDescr) > SERVICE_DESCRIPTION_MAX_LENGTH):
+        if (len(serviceDescr) > SERVICE_DESCRIPTION_MAX_LENGTH):
             serviceDescr = serviceDescr[0:SERVICE_DESCRIPTION_MAX_LENGTH - 1]
         serviceOsh.setAttribute("service_description", serviceDescr)
 
@@ -2896,6 +2933,7 @@ def createVlanOsh(vlanId, parentOsh=None, portIdList=[]):
             vlanUniqueId = 1
         vlanOsh.setStringAttribute('vlan_unique_id', vlanUniqueId)
     return vlanOsh
+
 
 def createIpServerOSH(endpoint):
     r'''

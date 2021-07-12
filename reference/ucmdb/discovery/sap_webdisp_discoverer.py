@@ -106,7 +106,7 @@ class InstanceProfileParser(sap_discoverer.InstanceProfileParser):
         for web dispatcher (attribute name "wdisp/system_<xx>")
 
         SID=<sap-sid>, [MSHOST=<ms-host>, [MSPORT=<ms-http-port> | MSSPORT=<ms-https-port>] |
-        SILOC=<info-file> | EXTSRV=<external-server-list>], [SRCSRV=<src-host>:<source-ports>,]
+        SILOC=<info-file> | EXTSRV=<external-server-list>], [SRCSRV=<personal-host>:<source-ports>,]
         [SRCURL=<source-urls>,] [NR=<sys-no>,] [SCSHOST=<scs-host>]
 
         With SAP NetWeaver Kernel 7.20 there is the possibility to manage with one SAP Web Dispatcher several

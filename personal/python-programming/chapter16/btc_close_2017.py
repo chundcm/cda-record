@@ -19,7 +19,7 @@ import pygal
 import math
 from itertools import groupby
 
-# serve -s src/pythonic/pythonic-programming/chapter16/
+# serve -s personal/pythonic/pythonic-programming/chapter16/
 json_url = 'http://localhost:5000/btc_close_2017.json'
 response = urlopen(json_url)  # 2
 # 读取数据
@@ -123,7 +123,7 @@ line_chart_weekday.render_to_file('收盘价星期均值（¥）.svg')
 line_chart_weekday
 
 # 只能本地打开（用浏览器）
-# 如：file:///Users/lang/Develop/Source/cda-training/cda-training-record/src/pythonic/pythonic-programming/chapter16/%E6%94%B6%E7%9B%98%E4%BB%B7Dashboard.html
+# 如：file:///Users/lang/Develop/Source/cda-training/cda-training-record/personal/pythonic/pythonic-programming/chapter16/%E6%94%B6%E7%9B%98%E4%BB%B7Dashboard.html
 with open('收盘价Dashboard.html', 'w', encoding='utf8') as html_file:
     html_file.write(
         '<html><head><title>收盘价Dashboard</title><meta charset="utf-8"></head><body>\n')

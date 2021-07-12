@@ -57,7 +57,7 @@ class OCIType(object):
                     value = None
 
             else:
-                raise Exception('Unknown type of src key:%s' % src_key)
+                raise Exception('Unknown type of personal key:%s' % src_key)
             if value is not None:
                 osh.setAttribute(oci_common.new_osh_attribute(target_key, value, valueType))
 

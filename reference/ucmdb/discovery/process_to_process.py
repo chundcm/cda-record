@@ -96,16 +96,16 @@ class ProcessToProcess:
                     DstListen = rs.getBoolean('DstListen')
 
                     if SrcListen and (not DstListen):
-                        self.buildTcpConnTopology(rs, 'dst', 'src')
+                        self.buildTcpConnTopology(rs, 'dst', 'personal')
                     elif DstListen and (not SrcListen):
-                        self.buildTcpConnTopology(rs, 'src', 'dst')
+                        self.buildTcpConnTopology(rs, 'personal', 'dst')
                     else:
-                        srcPrefered = self.isPreferedService(rs, 'src')
+                        srcPrefered = self.isPreferedService(rs, 'personal')
                         dstPrefered = self.isPreferedService(rs, 'dst')
                         if srcPrefered and (not dstPrefered):
-                            self.buildTcpConnTopology(rs, 'dst', 'src')
+                            self.buildTcpConnTopology(rs, 'dst', 'personal')
                         elif dstPrefered and (not srcPrefered):
-                            self.buildTcpConnTopology(rs, 'src', 'dst')
+                            self.buildTcpConnTopology(rs, 'personal', 'dst')
                         else:
                             # we don't known which endpoint is listening,
                             # so we can't set the link direction

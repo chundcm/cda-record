@@ -1,31 +1,34 @@
 # coding: utf-8
 
 import re
-import logger
-import netutils
-import wwn
-from storage_topology import VolumeGroup, LogicalVolume, PhysicalVolume,\
-    createVolumeGroupOsh, createLogicalVolumeOsh, createPhysicalVolumeOsh
-from shellutils import ShellUtils
+
 from appilog.common.system.types import ObjectStateHolder
 from appilog.common.system.types.vectors import ObjectStateHolderVector
-import modeling
-import errormessages
-import shell_interpreter
-from vendors import PlatformVendors
-
-from java.lang import Exception as JavaException
-from modeling import HostBuilder
 from com.hp.ucmdb.discovery.library.clients.ddmagent import AgentSessionException
+from java.lang import Exception as JavaException
+
+import errormessages
+import logger
+import modeling
+import netutils
+import shell_interpreter
+import wwn
+from modeling import HostBuilder
+from shellutils import ShellUtils
+from storage_topology import VolumeGroup, LogicalVolume, PhysicalVolume, \
+    createVolumeGroupOsh, createLogicalVolumeOsh, createPhysicalVolumeOsh
+from vendors import PlatformVendors
 
 PARSTATUS_PATH = '/usr/sbin/parstatus'
 VPARSTATUS_PATH = '/usr/sbin/vparstatus'
+
 
 class Complex:
     def __init__(self):
         self.name = None
         self.serialNumber = None
         self.cellsPerCabinet = None
+
 
 class Cell:
     def __init__(self):
@@ -51,12 +54,14 @@ class Cell:
         self.deconfDimms = None
         self.nparId = None
 
+
 class IoChassis:
     def __init__(self):
         self.name = None
         self.usage = None
         self.isCore = None
         self.cellName = None
+
 
 class NparConfig:
     def __init__(self):
@@ -67,6 +72,7 @@ class NparConfig:
         self.partitionNumber = None
         self.primaryBootPath = None
         self.alternateBootPath = None
+
 
 class VparConfig:
     def __init__(self):
@@ -82,6 +88,7 @@ class VparConfig:
         self.cpusBoundByMonitor = None
         self.unboundCpus = None
 
+
 class FibreChannel:
     def __init__(self):
         self.name = None
@@ -91,16 +98,19 @@ class FibreChannel:
         self.wwnn = None
         self.wwpn = None
 
+
 class Disk:
     def __init__(self):
         self.names = []
         self.hardwarePath = None
         self.description = None
 
+
 class NparNetworkInterface(modeling.NetworkInterface):
     def __init__(self):
         modeling.NetworkInterface.__init__(self, None, None)
         self.hardwarePath = None
+
 
 class LinkAggregation(modeling.NetworkInterface):
     def __init__(self):
@@ -108,15 +118,24 @@ class LinkAggregation(modeling.NetworkInterface):
         self.interfaces = []
         self.className = 'interface_aggregation'
 
+
 class FileSystem:
     def __init__(self, name, mountPoint):
         self.name = name
         self.mountPoint = mountPoint
 
+
 class InsufficientPermissionsException(Exception): pass
+
+
 class IncompleteObjectException(Exception): pass
+
+
 class EmptyCommandOutputException(Exception): pass
+
+
 class UnknownCommandException(Exception): pass
+
 
 def _stripLastLoginInformation(output):
     ''' Strip information about the last successful / unsuccessful login
@@ -141,7 +160,8 @@ def _stripLastLoginInformation(output):
         result = '\n'.join(lines[index:])
     return result
 
-def getCommandOutput(command, shell, timeout=0, path = "/usr/sbin/"):
+
+def getCommandOutput(command, shell, timeout=0, path="/usr/sbin/"):
     ''' Execute command and handle additional cases with privileges
     @types: str, shellutils.UnixShell, int, str -> str
     @param path: Path to command that is not in $PATH system variable
@@ -152,12 +172,13 @@ def getCommandOutput(command, shell, timeout=0, path = "/usr/sbin/"):
     '''
     if not command: raise ValueError, "command is empty"
 
-    result = shell.execCmd(command, timeout)#@@CMD_PERMISION shell protocol execution
+    result = shell.execCmd(command, timeout)  # @@CMD_PERMISION shell protocol execution
     result = result and result.strip()
     if result:
         if shell.getLastCmdReturnCode() == 0:
             return _stripLastLoginInformation(result)
-        elif (re.search(r"Superuser privileges required.", result, re.I) or __isCommandUnrecognized(result)) and path and not command.find(path) == 0:
+        elif (re.search(r"Superuser privileges required.", result, re.I) or __isCommandUnrecognized(
+                result)) and path and not command.find(path) == 0:
             result = getCommandOutput(path + command, shell, timeout, None)
             return _stripLastLoginInformation(result)
         else:
@@ -171,14 +192,18 @@ def getCommandOutput(command, shell, timeout=0, path = "/usr/sbin/"):
     else:
         raise EmptyCommandOutputException, "Command did not return an output: %s." % command
 
+
 def notNone(value):
     if not value:
         raise ValueError, "Value is None"
     return value
 
+
 ONLY_LINES_WITH_CONTENT = -2
 ALL_LINES = -1
-def split(output, delimiter = "\n", mode = ALL_LINES):
+
+
+def split(output, delimiter="\n", mode=ALL_LINES):
     lines = output.split(delimiter)
     if mode == ALL_LINES:
         return lines
@@ -191,6 +216,7 @@ def split(output, delimiter = "\n", mode = ALL_LINES):
 
         return validLines
 
+
 def toBoolean(yesNoValue):
     if yesNoValue:
         if yesNoValue.lower() == "yes":
@@ -198,14 +224,17 @@ def toBoolean(yesNoValue):
         if yesNoValue.lower() == "no":
             return 0
 
+
 def toInteger(intString):
     try:
         return int(intString)
     except:
         pass
 
+
 def gbToMb(gb):
-    return long(float(gb)*1024)
+    return long(float(gb) * 1024)
+
 
 def convertGbStringToMb(gbString):
     """
@@ -230,6 +259,7 @@ def getProperty(output, property):
         propertyValue = propertyValue and propertyValue.strip()
         return propertyValue
 
+
 def parseVparstatusVersion(vparstatusOutput):
     match = re.search(r"Version\s+(.*)", vparstatusOutput, re.I)
     if match:
@@ -238,13 +268,18 @@ def parseVparstatusVersion(vparstatusOutput):
         if versionString:
             return float(versionString)
 
-__COMMAND_UNRECOGNIZED_KEYWORDS = ["is not recognized", "not found", "cannot find", "no such file", "no such command", "does not exist"]
+
+__COMMAND_UNRECOGNIZED_KEYWORDS = ["is not recognized", "not found", "cannot find", "no such file", "no such command",
+                                   "does not exist"]
+
+
 def __isCommandUnrecognized(output):
     lowerOutput = output.lower()
     for keyword in __COMMAND_UNRECOGNIZED_KEYWORDS:
         if lowerOutput.find(keyword) >= 0:
             return 1
     return 0
+
 
 def isPartitionableSystem(shell):
     output = shell.execCmd(buildParstatusCmd('-s'))
@@ -255,17 +290,22 @@ def isPartitionableSystem(shell):
             raise ValueError, "Failed to determine if discovering nPartition system"
     return not shell.getLastCmdReturnCode()
 
+
 def __isClusterNode(shell, ip):
     try:
         environment = shell_interpreter.Factory().create(shell).getEnvironment()
         output = None
         if isinstance(environment, shell_interpreter.CShellEnvironment):
-            output = shell.execCmd('\n'.join(["foreach i ( `cat /etc/hosts | grep %s | awk '{print $3}'` )", "sudo /usr/sbin/cmviewcl -v | grep $i", "end"]))
+            output = shell.execCmd('\n'.join(
+                ["foreach i ( `cat /etc/hosts | grep %s | awk '{print $3}'` )", "sudo /usr/sbin/cmviewcl -v | grep $i",
+                 "end"]))
         else:
-            output = shell.execCmd("for i in `cat /etc/hosts | grep %s | awk '{print $3}'`;do sudo /usr/sbin/cmviewcl -v | grep $i;done" % ip)
+            output = shell.execCmd(
+                "for i in `cat /etc/hosts | grep %s | awk '{print $3}'`;do sudo /usr/sbin/cmviewcl -v | grep $i;done" % ip)
         return output and output.strip() and not __isCommandUnrecognized(output)
     except:
         logger.warnException("Failed to check if connected to the cluster IP")
+
 
 def validHardwarePath(hwPath):
     if isHardwarePath(hwPath):
@@ -273,9 +313,11 @@ def validHardwarePath(hwPath):
     else:
         raise ValueError, "String '%s' is not valid hardware path" % hwPath
 
+
 def isHardwarePath(hwPath):
     match = re.match(r"^[\d/\.]+$", hwPath)
     return match is not None
+
 
 def parseComplex(parstatusOutput):
     complex = Complex()
@@ -304,6 +346,7 @@ def parseComplex(parstatusOutput):
 
     return complex
 
+
 def parseCellPaths(parstatusOutput):
     paths = []
     for line in split(parstatusOutput):
@@ -317,6 +360,7 @@ def parseCellPaths(parstatusOutput):
                     paths.append(cellName)
     return paths
 
+
 def calculateCellGlobalIds(paths, cellsPerCabinet):
     globalCellIds = []
     for path in paths:
@@ -324,11 +368,12 @@ def calculateCellGlobalIds(paths, cellsPerCabinet):
         if match:
             cabinetNumber = int(match.group(1))
             cellId = int(match.group(2))
-            globalCellId = cabinetNumber*cellsPerCabinet + cellId
+            globalCellId = cabinetNumber * cellsPerCabinet + cellId
             globalCellIds.append(globalCellId)
         else:
             raise ValueError, "Failed to calculate cell global id. Unsupported cell path format: %s" % path
     return globalCellIds
+
 
 def isCore(actualUsage):
     if actualUsage:
@@ -336,6 +381,7 @@ def isCore(actualUsage):
         coreMode = actualUsage.split(" ")
         if len(coreMode) == 2:
             return coreMode[1].lower() == "core"
+
 
 def parseCell(output):
     cell = Cell()
@@ -377,12 +423,13 @@ def parseCell(output):
     cell.isHyperthreadingCapable = toBoolean(getProperty(output, "Hyperthreading Capable"))
     cell.nparId = toInteger(getProperty(output, "Partition Number"))
 
-
     return cell
+
 
 def isHardwarePathWithNames(path):
     match = re.match(r"([A-Za-z]+\d+[,]?)+$", path)
     return match is not None
+
 
 def parseIoChassis(parstatusOutput):
     allIoChassis = []
@@ -409,16 +456,18 @@ def parseIoChassis(parstatusOutput):
                 if isHardwarePathWithNames(cellName):
                     ioChassis.cellName = cellName
                 elif cellName != '-':
-                    logger.warn("Failed to convert '%s' to hardware path. IOChassis won't be connected to the cell" % cellName)
+                    logger.warn(
+                        "Failed to convert '%s' to hardware path. IOChassis won't be connected to the cell" % cellName)
 
                 allIoChassis.append(ioChassis)
             else:
                 raise ValueError, "Output format not supported '%s'" % line
     return allIoChassis
 
+
 def parseNparNumbers(parstatusOutput):
     nparNumbers = []
-    for line in split(parstatusOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(parstatusOutput, mode=ONLY_LINES_WITH_CONTENT):
         match = re.match(r"partition:\s*(\d+)\s*:", line)
         if match:
             nparNumber = toInteger(match.group(1))
@@ -427,6 +476,7 @@ def parseNparNumbers(parstatusOutput):
             else:
                 logger.warn("Failed to get nPar number from string '%s'" % line)
     return nparNumbers
+
 
 def parseNparConfig(parstatusOutput):
     nparConfig = NparConfig()
@@ -438,12 +488,14 @@ def parseNparConfig(parstatusOutput):
     nparConfig.isHyperthreadingEnabled = toBoolean(getProperty(parstatusOutput, "Hyperthreading Enabled"))
     return nparConfig
 
+
 def isVpar(shell):
     shell.execCmd("test -e " + buildVparstatusCmd())
     return shell.getLastCmdReturnCode() == 0
 
+
 def getVparName(shell):
-    output = getCommandOutput(buildVparstatusCmd("-M -w"), shell, path = None)
+    output = getCommandOutput(buildVparstatusCmd("-M -w"), shell, path=None)
     if re.match(r"\w+$", output):
         return output
 
@@ -470,12 +522,14 @@ def parseVparConfig(output):
             vparConfig.autoBootMode = attribute[1]
             vparConfig.autoSearchMode = attribute[2]
         else:
-            #TODO: Make Unit test on this
-            logger.warn("Failed to set vPar Autoboot, Autosearch and Resource modification mode attributes. Unsupported output format: '%s'" % attributeString)
+            # TODO: Make Unit test on this
+            logger.warn(
+                "Failed to set vPar Autoboot, Autosearch and Resource modification mode attributes. Unsupported output format: '%s'" % attributeString)
 
     parseCpuDetails(vparConfig, output)
 
     return vparConfig
+
 
 def parseCpuDetails(vparConfig, output):
     match = re.search(r"\[CPU\s+Details](.*)\[IO Details]", output, re.DOTALL)
@@ -490,6 +544,7 @@ def parseCpuDetails(vparConfig, output):
 
     return vparConfig
 
+
 def parseBoundCpus(cpuDetails, vparConfig):
     cpusBoundByUser = parseHardwarePaths(cpuDetails, "Bound by User [Path]")
     vparConfig.cpusBoundByUser = cpusBoundByUser
@@ -499,6 +554,7 @@ def parseBoundCpus(cpuDetails, vparConfig):
 
     unboundCpus = parseHardwarePaths(cpuDetails, "Unbound [Path]")
     vparConfig.unboundCpus = unboundCpus
+
 
 def parseAssignedCpus(cpuDetails, vparConfig):
     cpusAssignedByUser = parseHardwarePaths(cpuDetails, "User assigned [Path]")
@@ -514,7 +570,7 @@ def parseAssignedCpus(cpuDetails, vparConfig):
 def parseHardwarePaths(output, propertyName):
     hardwarePaths = []
     collectHardwarePaths = 0
-    for line in split(output, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(output, mode=ONLY_LINES_WITH_CONTENT):
         if line.find(propertyName) >= 0:
             collectHardwarePaths = 1
             match = re.search(r"(\d\.\d+)", line)
@@ -529,7 +585,7 @@ def parseHardwarePaths(output, propertyName):
                 hardwarePath = match.group(1)
                 hardwarePaths.append(hardwarePath)
             else:
-                #It means that property has been ended and new property header has been found
+                # It means that property has been ended and new property header has been found
                 break
 
     if not collectHardwarePaths:
@@ -546,11 +602,12 @@ def parseHardwarePaths(output, propertyName):
     else:
         return None
 
+
 def parseFibreChannelAdapters(ioscanOutput):
     fibreChannels = []
     parsingAdapter = 0
     fcAdapter = None
-    for line in split(ioscanOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(ioscanOutput, mode=ONLY_LINES_WITH_CONTENT):
         if not parsingAdapter:
             fcAdapter = FibreChannel()
             adapterProperties = line.split(":")
@@ -564,13 +621,14 @@ def parseFibreChannelAdapters(ioscanOutput):
             parsingAdapter = 0
     return fibreChannels
 
+
 def parseDiskDevices(ioscanOutput):
     diskDevices = []
     diskDevice = None
     parsingDisk = 0
-    for line in split(ioscanOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(ioscanOutput, mode=ONLY_LINES_WITH_CONTENT):
         if line.find(":") >= 0:
-            #Verify if current disk is not an Fibre Channel driven
+            # Verify if current disk is not an Fibre Channel driven
             if line.find("fcd_fcp") > 0:
                 parsingDisk = 0
                 continue
@@ -581,16 +639,17 @@ def parseDiskDevices(ioscanOutput):
             diskDevices.append(diskDevice)
             parsingDisk = 1
         elif parsingDisk:
-            deviceNames = split(line, " ", mode = ONLY_LINES_WITH_CONTENT)
+            deviceNames = split(line, " ", mode=ONLY_LINES_WITH_CONTENT)
             diskDevice.names.append(deviceNames[0])
             if len(deviceNames) > 1:
                 diskDevice.names.append(deviceNames[1])
 
     return diskDevices
 
+
 def parseNetworkInterfaces(ioscanOutput):
     networkInerfaces = []
-    lines = [line for line in split(ioscanOutput, mode = ONLY_LINES_WITH_CONTENT) if line.count(":lan:") > 0]
+    lines = [line for line in split(ioscanOutput, mode=ONLY_LINES_WITH_CONTENT) if line.count(":lan:") > 0]
     for line in lines:
         lan = NparNetworkInterface()
         lanProperties = line.split(":")
@@ -601,9 +660,10 @@ def parseNetworkInterfaces(ioscanOutput):
 
     return networkInerfaces
 
+
 def parseVolumeGroup(vgdisplayOutput):
     volumeGroup = VolumeGroup()
-    for line in split(vgdisplayOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(vgdisplayOutput, mode=ONLY_LINES_WITH_CONTENT):
         name = getPropertyFromLine("VG Name", line)
         if name:
             volumeGroup.vgName = name
@@ -620,6 +680,7 @@ def parseVolumeGroup(vgdisplayOutput):
             continue
 
     return volumeGroup
+
 
 def parseLogicalAndPhysicalVolumes(vgdisplayOutput):
     """
@@ -655,17 +716,19 @@ def parseLogicalAndPhysicalVolumes(vgdisplayOutput):
     volumeGroup.physicalVolumes = physicalVolumes
     return volumeGroup
 
+
 def parseVolumeGroupNames(vparstatusOutput):
     volumeGroupNames = []
-    for line in split(vparstatusOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(vparstatusOutput, mode=ONLY_LINES_WITH_CONTENT):
         volumeGroupName = getPropertyFromLine("VG Name", line)
         volumeGroupNames.append(volumeGroupName)
     return volumeGroupNames
 
+
 def parseLogicalVolumes(output):
     logicalVolumes = []
     logicalVolume = None
-    for line in split(output, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(output, mode=ONLY_LINES_WITH_CONTENT):
         name = getPropertyFromLine("LV Name", line)
         if name:
             logicalVolume = LogicalVolume()
@@ -685,10 +748,11 @@ def parseLogicalVolumes(output):
 
     return logicalVolumes
 
+
 def parsePhysicalVolumes(output, volumeGroup):
     physicalVolumes = []
     physicalVolume = None
-    for line in split(output, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(output, mode=ONLY_LINES_WITH_CONTENT):
         name = getPropertyFromLine("PV Name", line)
         if name:
             if line.lower().find("alternate") > 0:
@@ -711,11 +775,12 @@ def parsePhysicalVolumes(output, volumeGroup):
 
     return physicalVolumes
 
+
 def parseFileSystems(dfOutput):
     fileSystems = []
     fileSystem = None
     mountedOn = None
-    for line in split(dfOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(dfOutput, mode=ONLY_LINES_WITH_CONTENT):
         token = line.split()
         if len(token) == 6 and token[4].find('%'):
             fileSystem = token[0]
@@ -736,11 +801,12 @@ def getPropertyFromLine(propertyName, line):
     if match:
         return match.group(1)
 
+
 def parseInterfaces(lanscanOutput):
     networkInterfaces = []
 
-    #The first two lines are skipped because they contain output header
-    for line in split(lanscanOutput, mode = ONLY_LINES_WITH_CONTENT)[2:]:
+    # The first two lines are skipped because they contain output header
+    for line in split(lanscanOutput, mode=ONLY_LINES_WITH_CONTENT)[2:]:
         properties = line.split()
         hwPath = properties[0]
         if isHardwarePath(hwPath):
@@ -758,9 +824,10 @@ def parseInterfaces(lanscanOutput):
 
     return networkInterfaces
 
+
 def parseLinkAggregation(lanscanOutput):
     linkAggregations = []
-    for line in split(lanscanOutput, mode = ONLY_LINES_WITH_CONTENT)[2:]:
+    for line in split(lanscanOutput, mode=ONLY_LINES_WITH_CONTENT)[2:]:
         properties = line.split()
         name = properties[0]
         if name.find("LinkAgg") >= 0 and properties[3].upper() == "UP":
@@ -777,12 +844,13 @@ def parseLinkAggregation(lanscanOutput):
 
     return linkAggregations
 
+
 def parseAggregatedInterfaceIndices(lanscanOutput, linkAggregations):
     lanIdToLinkAgg = {}
     for linkAggregation in linkAggregations:
         lanIdToLinkAgg[linkAggregation.interfaceIndex] = linkAggregation
 
-    for line in split(lanscanOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(lanscanOutput, mode=ONLY_LINES_WITH_CONTENT):
         if re.match(r"[\d\s]+", line):
             linkAggregation = lanIdToLinkAgg.get(line.split()[0].strip())
             if linkAggregation:
@@ -795,16 +863,19 @@ def parseAggregatedInterfaceIndices(lanscanOutput, linkAggregations):
                 else:
                     logger.warn("No interface indices found for Link aggregation %s" % linkAggregation.interfaceIndex)
 
+
 def parseIndices(line):
     if re.match(r"[\d\s]+", line):
         indices = line.split()
         if len(indices) > 1:
             return [toInteger(index) for index in indices[1:] if toInteger(index) is not None]
 
+
 def parseLanadminOutput(lanadminOutput):
     match = re.search(r".*=\s+(.*)", lanadminOutput, re.DOTALL)
     if match:
         return match.group(1).strip()
+
 
 def parseMacAddress(lanadminOutput):
     macAddress = parseLanadminOutput(lanadminOutput)
@@ -816,18 +887,20 @@ def parseMacAddress(lanadminOutput):
     else:
         raise IncompleteObjectException, "Could not find MAC address in output: %s" % lanadminOutput
 
+
 def parseInterfaceHardwarePath(lanscanOutput, linkAgg):
     interfaces = {}
     for interface in linkAgg.interfaces:
         interfaces[interface.interfaceIndex] = interface
 
-    for line in split(lanscanOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(lanscanOutput, mode=ONLY_LINES_WITH_CONTENT):
         properties = line.split()
         hwPath = properties[0]
         interfaceIndex = toInteger(properties[1])
         if isHardwarePath(hwPath) and interfaces.has_key(interfaceIndex):
             interface = interfaces[interfaceIndex]
             interface.hardwarePath = hwPath
+
 
 def getComplex(shell):
     parstatusOutput = getCommandOutput(buildParstatusCmd("-X"), shell)
@@ -836,10 +909,11 @@ def getComplex(shell):
     except:
         return None
 
+
 def getCells(shell, complex):
     cells = []
     try:
-        parstatusOutput = getCommandOutput(buildParstatusCmd("-M -C"), shell)        
+        parstatusOutput = getCommandOutput(buildParstatusCmd("-M -C"), shell)
         cellNames = parseCellPaths(parstatusOutput)
         globalIds = calculateCellGlobalIds(cellNames, complex.cellsPerCabinet)
 
@@ -857,9 +931,11 @@ def getCells(shell, complex):
         logger.reportWarning("Parstatus output not valid: discovery will be partial")
     return cells
 
+
 def getIoChassis(shell):
     parstatusOutput = getCommandOutput(buildParstatusCmd("-M -I"), shell)
     return parseIoChassis(parstatusOutput)
+
 
 def getNparConfigs(shell):
     nparConfigs = []
@@ -870,7 +946,6 @@ def getNparConfigs(shell):
         logger.debugException('')
         logger.reportWarning('Failed to get Npar configuration. Please check logs for details.')
 
-
     nparNumbers = parseNparNumbers(parstatusOutput)
 
     for nparNumber in nparNumbers:
@@ -880,17 +955,20 @@ def getNparConfigs(shell):
 
     return nparConfigs
 
+
 def getVparConfig(shell):
     currentVparName = getVparName(shell)
     vparstatusOutput = getCommandOutput(buildVparstatusCmd("-v -p %s" % currentVparName), shell)
     vparConfig = parseVparConfig(vparstatusOutput)
     return vparConfig
 
+
 def parseFcmsutilOutput(propertyName, fcmsutilOutput):
-    for line in split(fcmsutilOutput, mode = ONLY_LINES_WITH_CONTENT):
-        match = re.match( "(%s)\s+=\s+(.*)" % propertyName, line )
+    for line in split(fcmsutilOutput, mode=ONLY_LINES_WITH_CONTENT):
+        match = re.match("(%s)\s+=\s+(.*)" % propertyName, line)
         if match:
             return match.group(2)
+
 
 # VPD: Vital Product Data
 # Sample:
@@ -905,20 +983,21 @@ def parseFcmsutilOutput(propertyName, fcmsutilOutput):
 # ...
 
 def parseFcmsutilVpdOutput(propertyName, fcmsutilVpdOutput):
-    for line in split(fcmsutilVpdOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(fcmsutilVpdOutput, mode=ONLY_LINES_WITH_CONTENT):
         match = re.match("(%s)\s+:\s*[\'\"]*(.*)\s*[\'\"]*" % propertyName, line)
         if match:
             return match.group(2)
 
+
 # Parse the following output,
-# Driver Version = @(#) libtd.a HP Fibre Channel Tachyon TL/TS/XL2 Driver B.11.11.12 PATCH_11.11 (PHSS_31326) /ux/kern/kisu/TL/src/common/wsio/td_glue.c: Sep  5 2005, 10:14:40
+# Driver Version = @(#) libtd.a HP Fibre Channel Tachyon TL/TS/XL2 Driver B.11.11.12 PATCH_11.11 (PHSS_31326) /ux/kern/kisu/TL/personal/common/wsio/td_glue.c: Sep  5 2005, 10:14:40
 # The result:
 #   Driver/firmware version (attribute fchba_driverversion): B.11.11.12 PATCH_11.11 (PHSS_31326)
 #   Model (attribute fchba_model): Tachyon TL/TS/XL2
 #   Vendor (attribute fchba_vendor): HP or HPE?
 #
 def parseFcmsutilOutput4DriverInfo(fcmsutilOutput):
-    for line in split(fcmsutilOutput, mode = ONLY_LINES_WITH_CONTENT):
+    for line in split(fcmsutilOutput, mode=ONLY_LINES_WITH_CONTENT):
         match = re.match("\s*Driver Version\s*=.*\s*(HP.* )\s*Fibre Channel\s*( .*)\s*Driver\s*( .*) /.*", line)
         if match:
             driverVersion = match.group(3)
@@ -940,7 +1019,7 @@ def parseFcmsutilOutput4DriverInfo(fcmsutilOutput):
             fchba_model = None
             fchba_vendor = None
 
-            #Sample: Driver Version = @(#) fcd B.11.31.1403 Dec  4 2013
+            # Sample: Driver Version = @(#) fcd B.11.31.1403 Dec  4 2013
             match = re.match("\s*Driver Version\s*=.*\s+fcd\s+(\S*).*", line)
             if match:
                 driverVersion = match.group(1)
@@ -948,10 +1027,12 @@ def parseFcmsutilOutput4DriverInfo(fcmsutilOutput):
 
     return (driverVersion, fchba_model, fchba_vendor)
 
+
 def fillFibreChannelWWN(fibreChannel, fcmsutilOutput):
     wwnn = parseFcmsutilOutput("N_Port Node World Wide Name", fcmsutilOutput)
     wwpn = parseFcmsutilOutput("N_Port Port World Wide Name", fcmsutilOutput)
-    fibreChannel.fchba_firmware = parseFcmsutilOutput('XL2 Chip Revision No is|ISP Code version|TL Chip Revision No is', fcmsutilOutput)
+    fibreChannel.fchba_firmware = parseFcmsutilOutput('XL2 Chip Revision No is|ISP Code version|TL Chip Revision No is',
+                                                      fcmsutilOutput)
 
     fibreChannel.wwnn = str(wwn.parse_from_str(wwnn, 16))
     fibreChannel.wwpn = str(wwn.parse_from_str(wwpn, 16))
@@ -961,13 +1042,14 @@ def fillFibreChannelWWN(fibreChannel, fcmsutilOutput):
     fibreChannel.fchba_model = fchba_model
     fibreChannel.fchba_vendor = fchba_vendor
 
+
 # fill the Vital Product Data
 def fillFibreChannelVPD(fibreChannel, fcmsutilVPDOutput):
     try:
         fibreChannel.serial_number = parseFcmsutilVpdOutput("Part Serial number", fcmsutilVPDOutput)
-        #!!!
-        #!!! There is no bios_version attribute in the CI Type of Fibre Channel HBA, please double confirm it
-        #!!!
+        # !!!
+        # !!! There is no bios_version attribute in the CI Type of Fibre Channel HBA, please double confirm it
+        # !!!
         fibreChannel.bios_version = parseFcmsutilVpdOutput("BIOS version", fcmsutilVPDOutput)
 
         if not fibreChannel.fchba_model:
@@ -981,6 +1063,7 @@ def fillFibreChannelVPD(fibreChannel, fcmsutilVPDOutput):
     except Exception, ex:
         logger.debug("Failed to get data from vpd, ", ex)
 
+
 def getFibreChannelAdapters(shell):
     ioscanOutput = getCommandOutput("ioscan -FnkCfc", shell)
     fibreChannelsNoWWN = parseFibreChannelAdapters(ioscanOutput)
@@ -988,10 +1071,10 @@ def getFibreChannelAdapters(shell):
 
     for fibreChannel in fibreChannelsNoWWN:
         try:
-            fcmsutilOutput = getCommandOutput('fcmsutil %s' % fibreChannel.name, shell, path = '/opt/fcms/bin/')
+            fcmsutilOutput = getCommandOutput('fcmsutil %s' % fibreChannel.name, shell, path='/opt/fcms/bin/')
             fillFibreChannelWWN(fibreChannel, fcmsutilOutput)
 
-            fcmsutilVpdOutput = getCommandOutput('fcmsutil %s vpd' % fibreChannel.name, shell, path = '/opt/fcms/bin/')
+            fcmsutilVpdOutput = getCommandOutput('fcmsutil %s vpd' % fibreChannel.name, shell, path='/opt/fcms/bin/')
             fillFibreChannelVPD(fibreChannel, fcmsutilVpdOutput)
 
             fibreChannels.append(fibreChannel)
@@ -999,12 +1082,14 @@ def getFibreChannelAdapters(shell):
             logger.warn("Failed to get WWNN of Fibre channel %s. Fibre channel is skipped." % fibreChannel.name)
     return fibreChannels
 
+
 def getDiskDevices(shell):
     ioscanOutput = getCommandOutput("ioscan -FnkCdisk", shell)
     diskDevices = parseDiskDevices(ioscanOutput)
     return diskDevices
 
-#def getNetworkInterfaces(shell):
+
+# def getNetworkInterfaces(shell):
 #    ioscanOutput = getCommandOutput("ioscan -FnkClan", shell)
 #    networkInterfaces = parseNetworkInterfaces(ioscanOutput)
 #    return networkInterfaces
@@ -1023,38 +1108,46 @@ def getVolumeGroups(shell):
 
     return volumeGroups
 
+
 def getLogicalVolumesAndPhysicalVolumes(shell, volumeGroup):
     vgdisplayOutput = getCommandOutput("vgdisplay -v %s" % volumeGroup.vgName, shell)
     (logicalVolumes, physicalVolumes) = parseLogicalAndPhysicalVolumes(vgdisplayOutput)
     return (logicalVolumes, physicalVolumes)
 
+
 def getFileSystems(shell):
-    dfOutput = getCommandOutput("df -P", shell, path = "/bin/")
+    dfOutput = getCommandOutput("df -P", shell, path="/bin/")
     return parseFileSystems(dfOutput)
+
 
 def getNetworkInterfacesViaIoscan(shell):
     ioscanOutput = getCommandOutput("ioscan -FnkClan", shell)
     networkInterfaces = parseNetworkInterfaces(ioscanOutput)
     return networkInterfaces
 
+
 def getNetworkInterfacesViaLanscan(shell):
     lanscanOutput = getCommandOutput("lanscan", shell)
     vparInterfaces = parseInterfaces(lanscanOutput)
     return vparInterfaces
+
 
 def getLinkAggregations(shell):
     lanscanOutput = getCommandOutput("lanscan", shell)
     linkAggregations = parseLinkAggregation(lanscanOutput)
     return linkAggregations
 
+
 def getInterfaceSpeed(shell, index):
     lanadminOutput = getCommandOutput("lanadmin -s %s" % index, shell)
     speedString = parseLanadminOutput(lanadminOutput)
     return long(speedString)
 
+
 def fillAggregatedInterfacesIndices(shell, linkAggregations):
     lanscanOutput = getCommandOutput("lanscan -q", shell)
     parseAggregatedInterfaceIndices(lanscanOutput, linkAggregations)
+
 
 def fillAggregatedInterfaceMacAddresses(shell, linkAggregation):
     for interface in linkAggregation.interfaces:
@@ -1065,6 +1158,7 @@ def fillAggregatedInterfaceMacAddresses(shell, linkAggregation):
             interface.macAddress = macAddress
         except:
             logger.warnException('')
+
 
 def fillAggregatedInterfaceHardwarePath(shell, linkAggregation):
     interfaceList = ""
@@ -1078,6 +1172,7 @@ def fillAggregatedInterfaceHardwarePath(shell, linkAggregation):
     lanscanOutput = getCommandOutput(command, shell)
     parseInterfaceHardwarePath(lanscanOutput, linkAggregation)
 
+
 def fillInterfaceSpeed(shell, interface):
     try:
         speed = getInterfaceSpeed(shell, interface.interfaceIndex)
@@ -1085,31 +1180,38 @@ def fillInterfaceSpeed(shell, interface):
     except:
         logger.warn("Failed to discover speed for interface %s" % interface.interfaceIndex)
 
+
 def createComplexOsh(complex):
     complexOsh = modeling.createCompleteHostOSH("hp_complex", complex.serialNumber, None, complex.name)
     complexOsh.setStringAttribute("host_serialnumber", complex.serialNumber)
     modeling.setHostOsFamily(complexOsh, 'baremetal_hypervisor')
     return complexOsh
 
+
 def setStringAttribute(osh, name, value):
     if value is not None:
         osh.setStringAttribute(name, value)
+
 
 def setBoolAttribute(osh, name, value):
     if value is not None:
         osh.setBoolAttribute(name, value)
 
+
 def setIntegerAttribute(osh, name, value):
     if value is not None:
         osh.setIntegerAttribute(name, value)
+
 
 def setLongAttribute(osh, name, value):
     if value is not None:
         osh.setLongAttribute(name, value)
 
+
 def setDoubleAttribute(osh, name, value):
     if value is not None:
         osh.setDoubleAttribute(name, value)
+
 
 def createCellOsh(cell, complexOsh):
     cellOsh = ObjectStateHolder("cell_board")
@@ -1139,6 +1241,7 @@ def createCellOsh(cell, complexOsh):
 
     return cellOsh
 
+
 def createIoChassisOsh(ioChassis, complexOsh):
     ioChassisOsh = ObjectStateHolder("io_chassis")
     ioChassisOsh.setContainer(complexOsh)
@@ -1146,6 +1249,7 @@ def createIoChassisOsh(ioChassis, complexOsh):
     setStringAttribute(ioChassisOsh, "usage", ioChassis.usage)
     setBoolAttribute(ioChassisOsh, "is_core", ioChassis.isCore)
     return ioChassisOsh
+
 
 def createNparConfigOsh(nparConfig, nparOsh):
     nparConfigOsh = ObjectStateHolder("hp_npar_config")
@@ -1160,16 +1264,21 @@ def createNparConfigOsh(nparConfig, nparOsh):
 
     return nparConfigOsh
 
+
 def getCurrentNparNumber(shell):
     output = getCommandOutput(buildParstatusCmd("-w"), shell)
     match = re.search(r"\s+(\d)\.", output)
     if match:
         return toInteger(match.group(1))
 
+
 HARDWARE_PATH_DELIMITER = "/"
+
+
 def getHardwarePathComponent(hardwarePath, componentIndex):
     components = hardwarePath.split(HARDWARE_PATH_DELIMITER)
     return toInteger(components[componentIndex])
+
 
 def getContainerByHardwarePath(hardwarePath, cellOshs, complexOsh):
     if hardwarePath.find(HARDWARE_PATH_DELIMITER) >= 0:
@@ -1182,6 +1291,7 @@ def getContainerByHardwarePath(hardwarePath, cellOshs, complexOsh):
             logger.warn("No Cell with id=%s found." % cellId)
     else:
         return complexOsh
+
 
 def createVparConfigOsh(vparConfig, vparOsh):
     vparConfigOsh = ObjectStateHolder("hp_vpar_config")
@@ -1199,6 +1309,7 @@ def createVparConfigOsh(vparConfig, vparOsh):
     setStringAttribute(vparConfigOsh, "unbound_cpus", vparConfig.unboundCpus)
     return vparConfigOsh
 
+
 def createFibreChannelOsh(fibreChannel):
     fibreChannelOsh = ObjectStateHolder("fchba")
     fibreChannelOsh.setStringAttribute("data_name", fibreChannel.name)
@@ -1211,15 +1322,17 @@ def createFibreChannelOsh(fibreChannel):
     fibreChannelOsh.setStringAttribute("fchba_vendor", fibreChannel.fchba_vendor)
     fibreChannelOsh.setStringAttribute("fchba_firmware", fibreChannel.fchba_firmware)
 
-    #!!! TODO, HBA BIOS Version
+    # !!! TODO, HBA BIOS Version
     fibreChannelOsh.setStringAttribute("serial_number", fibreChannel.serial_number)
 
     return fibreChannelOsh
+
 
 def getNparOshByCellId(cellId, cells, nparIdToNpar):
     for cell in cells:
         if cell.globalId == cellId:
             return nparIdToNpar.get(cell.nparId)
+
 
 def getDeviceContainer(hardwarePath, complexOsh, cellIdToIoChassisOsh, isCelluarSystem):
     if isCelluarSystem:
@@ -1228,10 +1341,12 @@ def getDeviceContainer(hardwarePath, complexOsh, cellIdToIoChassisOsh, isCelluar
     else:
         return complexOsh
 
+
 def createInterfaceOsh(nic, container):
     tempVector = modeling.createInterfacesOSHV((nic,), container)
     if tempVector.size() > 0:
         return tempVector.get(0)
+
 
 def createVparOsh(cmdbId):
     vparOsh = modeling.createOshByCmdbId("host", cmdbId)
@@ -1239,8 +1354,9 @@ def createVparOsh(cmdbId):
     hostBuilder.setAsVirtual(1)
     return hostBuilder.build()
 
+
 def discoverNparTopology(shell, vector, Framework):
-    #Discovering nPartitions
+    # Discovering nPartitions
     complex = getComplex(shell)
     if not complex:
         return
@@ -1251,13 +1367,14 @@ def discoverNparTopology(shell, vector, Framework):
     ioChassis = getIoChassis(shell)
     nparConfigs = getNparConfigs(shell)
 
-    #Building nPartitions topology
+    # Building nPartitions topology
     complexOsh = createComplexOsh(complex)
     vector.add(complexOsh)
 
     nparIdToNpar = {}
     for nparConfig in nparConfigs:
-        nparOsh = modeling.createCompleteHostOSH("host", "%s %s" % (complex.serialNumber, nparConfig.partitionName), None, nparConfig.partitionName)
+        nparOsh = modeling.createCompleteHostOSH("host", "%s %s" % (complex.serialNumber, nparConfig.partitionName),
+                                                 None, nparConfig.partitionName)
         nparOsh.setStringAttribute('platform_vendor', PlatformVendors.NPAR)
         if complex.serialNumber:
             nparOsh.setStringAttribute('host_serialnumber', complex.serialNumber)
@@ -1304,14 +1421,14 @@ def discoverNparTopology(shell, vector, Framework):
         vparOsh = createVparOsh(Framework.getDestinationAttribute("hostId"))
         vector.add(vparOsh)
 
-        #Building vPartitions topology
+        # Building vPartitions topology
         if not isCellularSystem:
             vector.add(modeling.createLinkOSH("member", complexOsh, vparOsh))
         else:
             vector.add(modeling.createLinkOSH("member", nparOsh, vparOsh))
 
         try:
-            #Discovering vPartition details
+            # Discovering vPartition details
             vparConfig = getVparConfig(shell)
             vparConfigOsh = createVparConfigOsh(vparConfig, vparOsh)
             vector.add(vparConfigOsh)
@@ -1323,7 +1440,7 @@ def discoverNparTopology(shell, vector, Framework):
         # At this point making vparOsh and nparOsh the same to use it further as a container for relevant resources.
         vparOsh = nparOsh
 
-    #Discovering and building storage topology
+    # Discovering and building storage topology
     volumeNameToOsh = {}
     try:
         volumeGroups = getVolumeGroups(shell)
@@ -1346,12 +1463,13 @@ def discoverNparTopology(shell, vector, Framework):
         logger.warnException('')
         Framework.reportWarning('Failed to discover storage topology')
 
-    #Linking file systems to volumes
+    # Linking file systems to volumes
     try:
         fileSystems = getFileSystems(shell)
         deviceToFileSystem = {}
         for fileSystem in fileSystems:
-            fileSystemOsh = modeling.createDiskOSH(vparOsh, fileSystem.mountPoint, modeling.UNKNOWN_STORAGE_TYPE, name = fileSystem.name)
+            fileSystemOsh = modeling.createDiskOSH(vparOsh, fileSystem.mountPoint, modeling.UNKNOWN_STORAGE_TYPE,
+                                                   name=fileSystem.name)
             vector.add(fileSystemOsh)
             deviceToFileSystem[fileSystem.name] = fileSystemOsh
 
@@ -1362,7 +1480,7 @@ def discoverNparTopology(shell, vector, Framework):
         logger.warnException('')
         Framework.reportWarning('Failed to link file systems and disks')
 
-    #Discovering SCSI adapters
+    # Discovering SCSI adapters
     try:
         disks = getDiskDevices(shell)
         for disk in disks:
@@ -1383,22 +1501,24 @@ def discoverNparTopology(shell, vector, Framework):
         logger.warnException('')
         Framework.reportWarning('Failed to discover SCSI adapters')
 
-    #Discovering Fibre Channel adapters
+    # Discovering Fibre Channel adapters
     try:
         fibreChannels = getFibreChannelAdapters(shell)
         for fibreChannel in fibreChannels:
             fibreChannelOsh = createFibreChannelOsh(fibreChannel)
-            container = getDeviceContainer(fibreChannel.hardwarePath, complexOsh, cellIdToIoChassisOsh, isCellularSystem)
+            container = getDeviceContainer(fibreChannel.hardwarePath, complexOsh, cellIdToIoChassisOsh,
+                                           isCellularSystem)
             if container:
                 fibreChannelOsh.setContainer(container)
                 vector.add(fibreChannelOsh)
                 vector.add(modeling.createLinkOSH("contained", vparOsh, fibreChannelOsh))
             else:
-                logger.warn("Container not found. Fibre Channel device is skipped. Hardware path: %s" % fibreChannel.hardwarePath)
+                logger.warn(
+                    "Container not found. Fibre Channel device is skipped. Hardware path: %s" % fibreChannel.hardwarePath)
 
             if fibreChannel.wwpn:
                 fibrePortOsh = ObjectStateHolder("fcport")
-                fibrePortOsh.setStringAttribute("fcport_wwn",fibreChannel.wwpn)
+                fibrePortOsh.setStringAttribute("fcport_wwn", fibreChannel.wwpn)
                 LinkOsh = modeling.createLinkOSH('containment', fibreChannelOsh, fibrePortOsh)
 
                 fibrePortOsh.setContainer(vparOsh)
@@ -1410,7 +1530,7 @@ def discoverNparTopology(shell, vector, Framework):
         logger.warnException('')
         Framework.reportWarning('Failed to discover Fibre Channel adapters')
 
-    #Discovering Network cards
+    # Discovering Network cards
     nicDescriptions = {}
     try:
         nics = getNetworkInterfacesViaIoscan(shell)
@@ -1418,7 +1538,6 @@ def discoverNparTopology(shell, vector, Framework):
             nicDescriptions[nic.interfaceIndex] = nic.description
     except:
         logger.warn("Failed to discover interface descriptions.")
-
 
     try:
         nics = getNetworkInterfacesViaLanscan(shell)
@@ -1436,7 +1555,7 @@ def discoverNparTopology(shell, vector, Framework):
         logger.warnException('')
         Framework.reportWarning('Failed to discover Network cards')
 
-    #Discovering link aggregations
+    # Discovering link aggregations
     try:
         linkAggregations = getLinkAggregations(shell)
         if linkAggregations:
@@ -1462,12 +1581,14 @@ def discoverNparTopology(shell, vector, Framework):
                     nic.name = "lan%s" % nic.interfaceIndex
                     nicOsh = createInterfaceOsh(nic, container)
                     if ucmdbVersion < 9:
-                        nicOsh.setStringAttribute("interface_macaddr", "%s_lan%s" % (linkAggregation.macAddress, nic.interfaceIndex))
+                        nicOsh.setStringAttribute("interface_macaddr",
+                                                  "%s_lan%s" % (linkAggregation.macAddress, nic.interfaceIndex))
                     vector.add(nicOsh)
                     vector.add(modeling.createLinkOSH("contained", vparOsh, nicOsh))
                     vector.add(modeling.createLinkOSH("member", linkAggregationOsh, nicOsh))
                 else:
-                    logger.warn("Container not found. Network interface (member of the link aggregation) is skipped. Hardware path: %s" % nic.hardwarePath)
+                    logger.warn(
+                        "Container not found. Network interface (member of the link aggregation) is skipped. Hardware path: %s" % nic.hardwarePath)
     except:
         logger.warnException('')
         Framework.reportWarning('Failed to discover link aggregations')
@@ -1479,13 +1600,16 @@ def isCellBasedComplex(shell):
     parstatusOutput = getCommandOutput(buildParstatusCmd("-X"), shell)
     return re.search("cell", parstatusOutput, re.I) is not None
 
+
 def isBladeBasedComplex(shell):
     parstatusOutput = getCommandOutput(buildParstatusCmd("-X"), shell)
     return re.search("enclosure", parstatusOutput, re.I) is not None
 
+
 def getBladeBasedComplex(shell):
     parstatusOutput = getCommandOutput(buildParstatusCmd("-X"), shell)
     return parseBladeBasedComplex(parstatusOutput)
+
 
 def parseBladeBasedComplex(parstatusOutput):
     complex = Complex()
@@ -1503,17 +1627,21 @@ def parseBladeBasedComplex(parstatusOutput):
 
     return complex
 
+
 def discoverBladeBasedNparTopology(shell, vector, Framework):
     complex = getBladeBasedComplex(shell)
     complexOsh = createComplexOsh(complex)
     vector.add(complexOsh)
     Framework.reportWarning("Blade-based systems are not fully supported.")
 
-def buildParstatusCmd(parameters = ''):
+
+def buildParstatusCmd(parameters=''):
     return PARSTATUS_PATH + " " + parameters
 
-def buildVparstatusCmd(parameters = ''):
+
+def buildVparstatusCmd(parameters=''):
     return VPARSTATUS_PATH + " " + parameters
+
 
 def DiscoveryMain(Framework):
     protocol = Framework.getDestinationAttribute('Protocol')

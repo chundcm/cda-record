@@ -1,37 +1,38 @@
-#coding=utf-8
+# coding=utf-8
 '''
 Created on Feb 8, 2011
 
 @author: vvitvitskiy
 '''
+import re
+import string
+
+from appilog.common.system.types.vectors import ObjectStateHolderVector
+from com.hp.ucmdb.discovery.library.communication.downloader.cfgfiles import GeneralSettingsConfigFile
+from java.io import ByteArrayInputStream
+from java.io import StringReader
 from java.lang import Exception as JException
 from java.lang import String
-import netutils
-import entity
-import logger
-import jee
-from java.io import StringReader
-from java.io import ByteArrayInputStream
-import re
+from javax.xml.xpath import XPathFactory
+from org.jdom import JDOMException
+from org.jdom.input import SAXBuilder
 
-import xmlutils
-from file_topology import FileAttrs
+import entity
 import file_system
 import file_topology
+import jee
 import jee_constants
-from javax.xml.xpath import XPathFactory
-from appilog.common.system.types.vectors import ObjectStateHolderVector
 import jms
-from com.hp.ucmdb.discovery.library.communication.downloader.cfgfiles import GeneralSettingsConfigFile
-from org.jdom.input import SAXBuilder
-from org.jdom import JDOMException
-import shellutils
+import logger
 import modeling
-import string
+import netutils
+import shellutils
+import xmlutils
+from file_topology import FileAttrs
 
 
 class ServerRuntime:
-    def __init__(self, commandLineDescriptor, ip = None):
+    def __init__(self, commandLineDescriptor, ip=None):
         '''
         @types: jee.JvmCommandLineDescriptor, str
         @raise ValueError: Empty command line descriptor
@@ -62,7 +63,6 @@ class ServerRuntime:
         m = re.search(pattern, self.getCommandLine())
         return m and m.group(1)
 
-
     def getIp(self):
         '@types: -> str'
         return self.__ip
@@ -87,7 +87,8 @@ class ServerRuntime:
 
 class ApplicationResource(jee.Resource, entity.HasName):
     r'Web application resource'
-    def __init__(self, name, resourceType, description = None):
+
+    def __init__(self, name, resourceType, description=None):
         r'@types: str, str'
         entity.HasName.__init__(self, name)
         self.type = resourceType
@@ -98,8 +99,9 @@ class _HasResources:
     r'''Application entries (servlets, beans) may refer to different resources with unique name
     Classes handles unique resources by their name
     '''
+
     def __init__(self):
-        r'dict(src, ApplicationResource)'
+        r'dict(personal, ApplicationResource)'
         self.__resourceByName = {}
 
     def addResource(self, resource):
@@ -114,6 +116,7 @@ class _HasResources:
 
 class BaseDescriptor(_HasResources, jee.HasJndiName):
     r'Base class for JEE descriptors'
+
     def __init__(self, displayName, description):
         _HasResources.__init__(self)
         jee.HasJndiName.__init__(self)
@@ -123,6 +126,7 @@ class BaseDescriptor(_HasResources, jee.HasJndiName):
 
 class ApplicationDescriptor(BaseDescriptor):
     r'Object model of META-INF/application.xml file content.'
+
     def __init__(self, displayName, description):
         BaseDescriptor.__init__(self, displayName, description)
         r'list(jee.EjbModule)'
@@ -175,6 +179,7 @@ class WebModuleDescriptor(BaseDescriptor):
     def getWebServices(self):
         return self.__webservices[:]
 
+
 class EjbModuleDescriptor(BaseDescriptor):
     def __init__(self, displayName, description):
         BaseDescriptor.__init__(self, displayName, description)
@@ -202,8 +207,10 @@ class EjbModuleDescriptor(BaseDescriptor):
 
 
 class InvalidXmlException(Exception): pass
+
+
 class BaseXmlParser:
-    def __init__(self, loadExternalDtd = 0):
+    def __init__(self, loadExternalDtd=0):
         r'@types: bool'
         self.__loadExternalDtd = loadExternalDtd
 
@@ -222,7 +229,7 @@ class BaseXmlParser:
         except JDOMException, e:
             raise InvalidXmlException(e.getMessage())
 
-    def _buildDocumentForXpath(self, content, namespaceAware = 1):
+    def _buildDocumentForXpath(self, content, namespaceAware=1):
         if not content:
             raise ValueError('Empty content')
         xmlFact = xmlutils.getXmlSecurityUtil().getDocumentBuilderFactoryInstance()
@@ -290,11 +297,11 @@ class ApplicationDescriptorParser(BaseXmlParser):
                     module = jee.EjbModule(moduleElement.getChildText('ejb', moduleElement.getNamespace()))
                     descriptor.addEjbModules(module)
         logger.info("Application '%s' has %s web modules and %s ejb modules. Resources %s" % (
-                       descriptor.displayName or applicationName or
-                       (application and jee_constants.ModuleType.EAR.getSimpleName(application.getName())),
-                       len(descriptor.getWebModules()),
-                       len(descriptor.getEjbModules()),
-                       len(descriptor.getResources()) ))
+            descriptor.displayName or applicationName or
+            (application and jee_constants.ModuleType.EAR.getSimpleName(application.getName())),
+            len(descriptor.getWebModules()),
+            len(descriptor.getEjbModules()),
+            len(descriptor.getResources())))
         return descriptor
 
     def parseWebApplicationDescriptor(self, content, application=None):
@@ -322,7 +329,7 @@ class ApplicationDescriptorParser(BaseXmlParser):
             servletElementNs = servletElement.getNamespace()
             name = servletElement.getChildText('servlet-name', servletElementNs)
             description = servletElement.getChildText('description', servletElementNs)
-            servlet = jee.Servlet(name, description = description)
+            servlet = jee.Servlet(name, description=description)
             servlet.className = servletElement.getChildText('servlet-class', servletElementNs)
             descriptor.addServlets(servlet)
 
@@ -331,7 +338,7 @@ class ApplicationDescriptorParser(BaseXmlParser):
         for resource in self._parseResources(root):
             descriptor.addResource(resource)
         # parse url patterns for declared servlets using servlet-mapping elements
-        servletMappingElements =root.getChildren('servlet-mapping', root.getNamespace())
+        servletMappingElements = root.getChildren('servlet-mapping', root.getNamespace())
         itServletMapping = servletMappingElements.iterator()
         while itServletMapping.hasNext():
             mappingElement = itServletMapping.next()
@@ -427,7 +434,7 @@ class ApplicationDescriptorParser(BaseXmlParser):
                 name = resourceRef.getChildText('res-ref-name', resourceRefNs)
                 resourceType = resourceRef.getChildText('res-type', resourceRefNs)
                 description = self._stripped(resourceRef.getChildText('description', resourceRefNs))
-                resources.append( ApplicationResource(name, resourceType, description) )
+                resources.append(ApplicationResource(name, resourceType, description))
         return resources
 
     def __createSessionBean(self, beanElement, name, beansElementsNs):
@@ -463,12 +470,14 @@ class ApplicationDescriptorParser(BaseXmlParser):
                         webService = jee.WebService(name, name)
                         descriptor.addWebServices(webService)
 
-        logger.info('EJB/WAR module "%s" contains %s webservices' % (descriptor.displayName or (module and module.getName()), len(descriptor.getWebServices())))
+        logger.info('EJB/WAR module "%s" contains %s webservices' % (
+        descriptor.displayName or (module and module.getName()), len(descriptor.getWebServices())))
         return descriptor
 
 
 class Layout:
     r'Abstract class for any type of layout'
+
     def __init__(self, fs):
         r'''@types: file_system.FileSystem
         @raise ValueError: Path manipulation approach is not specified
@@ -533,12 +542,13 @@ class ApplicationLayout(Layout):
     def _findDescriptorFilesIn(self, path, moduleType):
         r'@types: str, jee_constants.ModuleTypeDescriptor -> list(file_topology.File)'
         return self._getFs().getFiles(self.path().join(path, moduleType.getConfigFilePath()),
-                filters = [moduleType.getConfigFileFilter()],
-                fileAttrs = [file_topology.FileAttrs.PATH, file_topology.FileAttrs.NAME])
+                                      filters=[moduleType.getConfigFileFilter()],
+                                      fileAttrs=[file_topology.FileAttrs.PATH, file_topology.FileAttrs.NAME])
 
 
 class HasJmxProvider:
     'Base JEE platform discoverer by JMX'
+
     def __init__(self, provider):
         '@types: jmx.Provider'
         self.__provider = provider
@@ -548,10 +558,9 @@ class HasJmxProvider:
         return self.__provider
 
 
-
-
 class DiscovererByShell:
     'Base JEE platform discoverer by Shell'
+
     def __init__(self, shell, layout):
         '''@types: shellutils.Shell, ServerLayout
         @raise ValueError: Processor is not set'''
@@ -562,12 +571,13 @@ class DiscovererByShell:
 
     def _getShell(self): return self.__shell
 
+
 def _quotePathIfHasSpaces(path):
     '@deprecated: USE layout methods instead'
     if path.find(' ') != -1:
         if path[0] != '"':
             path = '"' + path
-        if path[len(path) -1 ] != '"':
+        if path[len(path) - 1] != '"':
             path = path + '"'
     return path
 
@@ -587,24 +597,24 @@ class JvmDiscovererByShell(DiscovererByShell):
                 jvm = self.getJVMInfo(_quotePathIfHasSpaces(javaPath))
         except:
             logger.warnException('Failed to get JVM information')
-#        Need to expand if the path is only 'java' or else like that
-#        if javaPath:
-#            jvm.resourcePath = javaPath
+        #        Need to expand if the path is only 'java' or else like that
+        #        if javaPath:
+        #            jvm.resourcePath = javaPath
         initialPermSize = serverRuntime.getJvmInitialPermSize()
         if initialPermSize:
-            jvm.initialPermSizeInBytes.set(1024*1024*long(initialPermSize))
+            jvm.initialPermSizeInBytes.set(1024 * 1024 * long(initialPermSize))
 
         maxPermSize = serverRuntime.getJvmMaxPermSize()
         if maxPermSize:
-            jvm.maxPermSizeInBytes.set(1024*1024* long(maxPermSize))
+            jvm.maxPermSizeInBytes.set(1024 * 1024 * long(maxPermSize))
 
         initialHeapSize = serverRuntime.getJvmInitialHeapSize()
         if initialHeapSize:
-            jvm.initialHeapSizeInBytes.set(1024*1024*long(initialHeapSize))
+            jvm.initialHeapSizeInBytes.set(1024 * 1024 * long(initialHeapSize))
 
         maxHeapSize = serverRuntime.getJvmMaxHeapSize()
         if maxHeapSize:
-            jvm.maxHeapSizeInBytes.set(1024*1024*long(maxHeapSize))
+            jvm.maxHeapSizeInBytes.set(1024 * 1024 * long(maxHeapSize))
 
         jvm.osVersion = str(self._getShell().getOsVersion()).strip()
         jvm.osType = self._getShell().getOsType()
@@ -624,7 +634,7 @@ class JvmDiscovererByShell(DiscovererByShell):
         javaCommand = '%s -version 2>&1' % javaCommand
         output = self._getShell().execCmd(javaCommand)
         if self._getShell().getLastCmdReturnCode() != 0:
-            raise Exception( "Failed to get JVM information. %s" % output)
+            raise Exception("Failed to get JVM information. %s" % output)
 
         name = None
         vendor = None
@@ -633,9 +643,9 @@ class JvmDiscovererByShell(DiscovererByShell):
             matchObj = re.search('[\w]+ version \"(.+?)\"', line)
             if matchObj:
                 javaVersion = matchObj.group(1)
-            #cover lines:
-            #Java(TM) 2 Runtime Environment, Standard Edition (build 1.4.2)
-            #Java(TM) SE Runtime Environment..
+            # cover lines:
+            # Java(TM) 2 Runtime Environment, Standard Edition (build 1.4.2)
+            # Java(TM) SE Runtime Environment..
             elif re.match(r'Java\(TM\) .+ Runtime Environment', line):
                 name = line.strip()
             else:
@@ -669,9 +679,9 @@ class BaseApplicationDiscoverer:
         runtimeDescriptorFiles = []
         for file in files:
             if file.name in jeeDescriptorFileNames:
-                jeeDescriptorFiles.append( file )
+                jeeDescriptorFiles.append(file)
             else:
-                runtimeDescriptorFiles.append( file )
+                runtimeDescriptorFiles.append(file)
         return (jeeDescriptorFiles, runtimeDescriptorFiles)
 
 
@@ -683,7 +693,7 @@ class BaseApplicationDiscovererByShell(BaseApplicationDiscoverer, DiscovererBySh
         BaseApplicationDiscoverer.__init__(self, descriptorParser)
         DiscovererByShell.__init__(self, shell, layout)
 
-    def discoverEarApplication(self, name, path, jndiNameToName = None):
+    def discoverEarApplication(self, name, path, jndiNameToName=None):
         r'@types: str, str -> jee.Application or None'
         application = jee.EarApplication(name, path)
         try:
@@ -721,7 +731,7 @@ class BaseApplicationDiscovererByShell(BaseApplicationDiscoverer, DiscovererBySh
                             logger.warnException("Failed to find descriptor files for web application. %s" % e)
                         if webModule and module.contextRoot:
                             webModule.contextRoot = module.contextRoot
-                            #overwrite the JNDI name if context root is defined
+                            # overwrite the JNDI name if context root is defined
                             webModule.setJndiName(module.contextRoot)
 
                         application.addModules(webModule)
@@ -758,21 +768,21 @@ class BaseApplicationDiscovererByShell(BaseApplicationDiscoverer, DiscovererBySh
             application.addModules(webModule)
         return application
 
-    def _findWebModule(self, name, path, jndiNameToName = None):
+    def _findWebModule(self, name, path, jndiNameToName=None):
         r''' Module detected by presence of file 'WEB-INF/web.xml' in specified path
         @types: str, str -> jee.WebModule
         @raise ValueError: JEE descriptor is not found
         '''
         return self._findModule(name, path, jee_constants.ModuleType.WAR, jndiNameToName)
 
-    def _findEjbModule(self, name, path, jndiNameToName = None):
+    def _findEjbModule(self, name, path, jndiNameToName=None):
         r''' Module detected by presence of file 'META-INF/ejb-jar.xml' in specified path
         @types: str, str -> jee.EjbModule
         @raise ValueError: JEE descriptor is not found
         '''
         return self._findModule(name, path, jee_constants.ModuleType.EJB, jndiNameToName)
 
-    def _findModule(self, name, path, moduleType, jndiNameToName = None):
+    def _findModule(self, name, path, moduleType, jndiNameToName=None):
         r''' Module detected by presence of file module descriptor in specified path
         @types: str, str, str -> jee.Module
         @raise ValueError: JEE descriptor is not found
@@ -812,23 +822,27 @@ class BaseApplicationDiscovererByShell(BaseApplicationDiscoverer, DiscovererBySh
                     module.setJndiName(moduleType.getSimpleName(moduleFileName))
 
             except (Exception, JException):
-                logger.warnException("Failed to process %s" % moduleType )
+                logger.warnException("Failed to process %s" % moduleType)
             # process runtime descriptor files
             for file in runtimeDescriptors:
                 try:
                     fileWithContent = self.getLayout().getFileContent(file.path)
                     module.addConfigFiles(jee.createXmlConfigFile(fileWithContent))
                     if descriptor and file.name == module.getWebServiceDescriptorName():
-                        descriptor = self._getDescriptorParser().parseWebServiceDescriptor(descriptor, fileWithContent.content, module)
+                        descriptor = self._getDescriptorParser().parseWebServiceDescriptor(descriptor,
+                                                                                           fileWithContent.content,
+                                                                                           module)
                         module.addWebServices(descriptor.getWebServices())
-                
+
                 except (Exception, JException):
                     logger.warnException("Failed to load content for runtime descriptor: %s" % file.name)
         else:
             raise ValueError("JEE descriptor is not found")
         return module
 
-def discoverDomainTopology(connectionPort, connectionIpAddress, domain, dnsResolver, credentialsfulServerRole, roleWithPortClass, reporter, setDomainIp = 1):
+
+def discoverDomainTopology(connectionPort, connectionIpAddress, domain, dnsResolver, credentialsfulServerRole,
+                           roleWithPortClass, reporter, setDomainIp=1):
     r'@types: int, str, jee.Domain, netutils.BaseDnsResolver, jee.HasCredentialInfoRole, PyClass, jee.ServerTopologyReporter, bool -> ObjectStateHolderVector'
     # make discovery itself
     if not domain:
@@ -892,13 +906,14 @@ def discoverDomainTopology(connectionPort, connectionIpAddress, domain, dnsResol
     # do not send domain if administrative IP is unknown
     vector = ObjectStateHolderVector()
     if domain.getIp() or not setDomainIp:
-        vector.addAll( reporter.reportNodesInDomain(domain, *domain.getNodes()) )
+        vector.addAll(reporter.reportNodesInDomain(domain, *domain.getNodes()))
     else:
         for node in domain.getNodes():
-            vector.addAll( reporter.reportServers( node.getServers() ) )
+            vector.addAll(reporter.reportServers(node.getServers()))
     return vector
 
-def getPlatformTrait(versionInfo, platform, fallbackVersion = None):
+
+def getPlatformTrait(versionInfo, platform, fallbackVersion=None):
     '''@types: str, jee.Platform, number -> entity.PlatformTrait
     @param fallbackVersion: Fallback parameter if version in provided info cannot be recognized
     @raise ValueError: Product version cannot be recognized
@@ -910,10 +925,12 @@ def getPlatformTrait(versionInfo, platform, fallbackVersion = None):
         logger.info("Found %s product with version: %s" % (platform, major))
     elif fallbackVersion:
         trait = entity.PlatformTrait(platform, fallbackVersion)
-        logger.warn("Cannot recognize product version by provided information '%s'. Fallback to %sth " % (versionInfo, fallbackVersion))
+        logger.warn("Cannot recognize product version by provided information '%s'. Fallback to %sth " % (
+        versionInfo, fallbackVersion))
     else:
         raise ValueError("Cannot resolve product version in '%s'" % versionInfo)
     return trait
+
 
 def createDatasources(*applicationResources):
     r'@types: tuple(jee_discoverer.ApplicationResource) -> list(jee.Datasource)'
@@ -924,11 +941,13 @@ def createDatasources(*applicationResources):
             datasources.append(jee.Datasource(resource.getName()))
     return datasources
 
+
 class ReporterFactory:
     r'''Holds information about correct reporters'''
+
     def __init__(self, domainReporter, applicationReporter,
                  jdbcDatasourceReporter, jmsDatasourceReporter
-        ):
+                 ):
         r'''
         @types: jee.ServerTopologyReporter, jee.ApplicationTopologyReporter, jee.DatasourceTopologyReporter, jms.TopologyReporter
         '''
@@ -940,13 +959,18 @@ class ReporterFactory:
         self.__jmsDatasourceReporter = jmsDatasourceReporter
 
     def getDomainReporter(self): return self.__domainReporter
+
     def getApplicationReporter(self): return self.__applicationReporter
+
     def getJdbcDsReporter(self): return self.__jdbcDatasourceReporter
+
     def getJmsDsReporter(self): return self.__jmsDatasourceReporter
+
 
 def isJeeEnhancedTopologyEnabled():
     globalSettings = GeneralSettingsConfigFile.getInstance()
     return globalSettings.getPropertyBooleanValue('enableJeeEnhancedTopology', 0)
+
 
 def createTopologyReporterFactory(domainTopologyBuilder, dnsResolver):
     r''' Factory method to get proper topology reporters creator depending on
@@ -955,22 +979,22 @@ def createTopologyReporterFactory(domainTopologyBuilder, dnsResolver):
 
     if isJeeEnhancedTopologyEnabled():
         return ReporterFactory(
-                jee.ServerEnhancedTopologyReporter(domainTopologyBuilder),
-                jee.ApplicationEnhancedTopologyReporter(jee.ApplicationTopologyBuilder()),
-                jee.EnhancedDatasourceTopologyReporter(jee.DatasourceTopologyBuilder(), dnsResolver),
-                createDnsEnabledJmsTopologyReporter( jms.EnhancedTopologyReporter,
-                                                     jms.TopologyBuilder(),
-                                                     dnsResolver)
+            jee.ServerEnhancedTopologyReporter(domainTopologyBuilder),
+            jee.ApplicationEnhancedTopologyReporter(jee.ApplicationTopologyBuilder()),
+            jee.EnhancedDatasourceTopologyReporter(jee.DatasourceTopologyBuilder(), dnsResolver),
+            createDnsEnabledJmsTopologyReporter(jms.EnhancedTopologyReporter,
+                                                jms.TopologyBuilder(),
+                                                dnsResolver)
         )
     else:
         return ReporterFactory(
-                jee.ServerTopologyReporter(domainTopologyBuilder),
-                jee.ApplicationTopologyReporter(jee.ApplicationTopologyBuilder()),
-                jee.DatasourceTopologyReporter(jee.DatasourceTopologyBuilder(), dnsResolver),
-                createDnsEnabledJmsTopologyReporter(
-                                                    jms.TopologyReporter,
-                                                    jms.TopologyBuilder(),
-                                                    dnsResolver)
+            jee.ServerTopologyReporter(domainTopologyBuilder),
+            jee.ApplicationTopologyReporter(jee.ApplicationTopologyBuilder()),
+            jee.DatasourceTopologyReporter(jee.DatasourceTopologyBuilder(), dnsResolver),
+            createDnsEnabledJmsTopologyReporter(
+                jms.TopologyReporter,
+                jms.TopologyBuilder(),
+                dnsResolver)
         )
 
 
@@ -980,6 +1004,7 @@ def createDnsEnabledJmsTopologyReporter(clazz, builder, dnsResolver):
 
     @types: PyClass[jms.TopologyReporter], jms.TopologyBuilder, netutils.BaseDnsResolver
     '''
+
     class DnsEnabledReporter(clazz):
         def __init__(self, topologyBuilder, dnsResolver):
             r'PyClass[jms.TopologyReporter], netutils.BaseDnsResolver'
@@ -1001,6 +1026,7 @@ def createDnsEnabledJmsTopologyReporter(clazz, builder, dnsResolver):
                         else:
                             server.address = ips[0]
             return self.__baseClass.reportDatasourceWithDeployer(self, domain, deploymentScope, datasource)
+
     return DnsEnabledReporter(builder, dnsResolver)
 
 
@@ -1008,7 +1034,8 @@ class DnsResolverDecorator:
     r''' Decorates IP resolving by replacing local IP address with destination
     IP address
     '''
-    def __init__(self, dnsResolver, destinationIpAddress,domainName=None):
+
+    def __init__(self, dnsResolver, destinationIpAddress, domainName=None):
         r'@types: netutils.BaseDnsResolver, str'
         assert (dnsResolver and destinationIpAddress
                 and not netutils.isLocalIp(destinationIpAddress))
@@ -1025,14 +1052,14 @@ class DnsResolverDecorator:
         '''
         if hostname == 'localhost':
             return [self.__destinationIpAddress]
-        ips=None
+        ips = None
         try:
             ips = self.__dnsResolver.resolveIpsByHostname(hostname)
         except:
             logger.warn("no ips resolved by hostname")
         if not ips and self.__domainName:
             logger.info("domainName='%s'" % (self.__domainName))
-            ips = self.__dnsResolver.resolveIpsByHostname(hostname+'.'+self.__domainName)
+            ips = self.__dnsResolver.resolveIpsByHostname(hostname + '.' + self.__domainName)
             logger.info("ipsFromFQDN discovered:", ips)
         isNotLocalIp = lambda ip: not netutils.isLocalIp(ip)
         nonLocalIps = filter(isNotLocalIp, ips)
@@ -1045,11 +1072,11 @@ class DnsResolverDecorator:
     def __getattr__(self, name):
         return getattr(self.__dnsResolver, name)
 
-def discoverTnsnamesOra(hostId, client):
 
+def discoverTnsnamesOra(hostId, client):
     OSHVResult = ObjectStateHolderVector()
 
-    tnsnames_FileName= 'tnsnames.ora'
+    tnsnames_FileName = 'tnsnames.ora'
     try:
         shell = shellutils.ShellUtils(client)
         logger.debug('is WinOS:', shell.isWinOs())
@@ -1060,19 +1087,18 @@ def discoverTnsnamesOra(hostId, client):
         tnsNamesFiles = findTnsnamesOra(shell, isWindows, None)
         if tnsNamesFiles:
             for tnsNamesFile in tnsNamesFiles:
-                logger.debug('finding file:' , tnsNamesFile)
+                logger.debug('finding file:', tnsNamesFile)
                 fileContent = getFileContent(shell, tnsNamesFile, isWindows)
                 fileContent = fileContent.replace('\r', ' ')
                 fileContent = fileContent.replace('\n', ' ')
                 hostOsh = modeling.createOshByCmdbIdString('host', hostId)
                 docOSH = modeling.createConfigurationDocumentOSH(tnsnames_FileName, tnsNamesFile, fileContent)
-                nodeToDocLinkOsh = modeling.createLinkOSH( 'composition', hostOsh, docOSH)
+                nodeToDocLinkOsh = modeling.createLinkOSH('composition', hostOsh, docOSH)
                 OSHVResult.add(hostOsh)
                 OSHVResult.add(docOSH)
                 OSHVResult.add(nodeToDocLinkOsh)
     except:
         logger.debug('There are some problems in finding tnsnames.ora.')
-
 
     return OSHVResult
 
@@ -1134,7 +1160,7 @@ def findTnsnamesOra(shell, isWindows, installLocs):
             if filesFound:
                 for fileFound in filesFound:
                     resultPath.append(fileFound)
-                    fileCount = fileCount +1
+                    fileCount = fileCount + 1
 
         if fileCount == 0 and not useCustomizedLocation:
             filesFound = findFile(shell, 'tnsnames.ora', '', isWindows)
@@ -1146,6 +1172,7 @@ def findTnsnamesOra(shell, isWindows, installLocs):
     except:
         logger.debug('error finding tnsnames.ora')
 
+
 def getFileContent(shell, theFile, isWindows):
     try:
         ## Make sure the file exists
@@ -1154,12 +1181,14 @@ def getFileContent(shell, theFile, isWindows):
             lsCommand = 'dir '
             ## Change / to \ in file path
             theFile = string.replace(theFile, '/', '\\')
-            logger.debug( '[getFileContent] Windows config file path: <%s>' % theFile)
-        logger.debug( '[getFileContent] Going to run command: <%s>' % (lsCommand + theFile))
+            logger.debug('[getFileContent] Windows config file path: <%s>' % theFile)
+        logger.debug('[getFileContent] Going to run command: <%s>' % (lsCommand + theFile))
         lsResults = str(shell.execCmd(lsCommand + theFile))
         lsStr = lsResults.strip()
-        logger.debug( '[getFileContent] Result of file listing: <%s>' % lsStr)
-        if (lsStr.find("No such file or directory") > 0) or (lsStr.find("File Not Found") > 0) or (lsStr.lower().find("error") > 0) or (lsStr.lower().find("illegal") > 0) or (lsStr.lower().find("permission") > 0):
+        logger.debug('[getFileContent] Result of file listing: <%s>' % lsStr)
+        if (lsStr.find("No such file or directory") > 0) or (lsStr.find("File Not Found") > 0) or (
+                lsStr.lower().find("error") > 0) or (lsStr.lower().find("illegal") > 0) or (
+                lsStr.lower().find("permission") > 0):
             logger.debug('Unable to find file <%s>' % theFile)
             return None
 
@@ -1169,7 +1198,7 @@ def getFileContent(shell, theFile, isWindows):
             catCommand = 'type '
         catResults = str(shell.execCmd(catCommand + theFile))
         if catResults == None or len(catResults) < 1:
-            logger.debug( 'File <%s> is empty or invalid' % theFile)
+            logger.debug('File <%s> is empty or invalid' % theFile)
             return None
         catStr = catResults.strip()
         return catStr
@@ -1177,6 +1206,7 @@ def getFileContent(shell, theFile, isWindows):
         excInfo = logger.prepareJythonStackTrace('')
         logger.debug('[getFileContent] Exception: <%s>' % excInfo)
         pass
+
 
 def findFile(shell, fileName, rootDirectory, isWindows):
     try:
@@ -1187,13 +1217,15 @@ def findFile(shell, fileName, rootDirectory, isWindows):
         findResults = str(shell.execCmd(findCommand, 120000))
         if isWindows == 'true':
             errorCode = str(shell.execCmd('echo %ERRORLEVEL%'))
-            print 'ERRORCODE: ', errorCode, ' for command ', findCommand
+            print
+            'ERRORCODE: ', errorCode, ' for command ', findCommand
             if errorCode and errorCode == '0':
                 pass
             else:
-                logger.debug( '[findFile] Unable to find <%s> in <%s>' % (fileName, rootDirectory))
+                logger.debug('[findFile] Unable to find <%s> in <%s>' % (fileName, rootDirectory))
                 return None
-        if findResults.find("File not found") > 0 or findResults.find("cannot find") > 0 or findResults.find("not set") > 0 or findResults.lower().find("permission") > 0 or len(findResults) < 1:
+        if findResults.find("File not found") > 0 or findResults.find("cannot find") > 0 or findResults.find(
+                "not set") > 0 or findResults.lower().find("permission") > 0 or len(findResults) < 1:
             logger.debug('[findFile] Unable to find <%s> in <%s>' % (fileName, rootDirectory))
             return None
         locations = splitCommandOutput(findResults.strip())
@@ -1205,6 +1237,7 @@ def findFile(shell, fileName, rootDirectory, isWindows):
         excInfo = logger.prepareJythonStackTrace('')
         logger.debug('[findFile] Exception: <%s>' % excInfo)
         pass
+
 
 def splitCommandOutput(commandOutput):
     try:

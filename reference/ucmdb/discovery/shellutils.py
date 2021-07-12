@@ -1,43 +1,40 @@
-#coding=utf-8
+# coding=utf-8
 """
 This library contains APIs for executing shell commands, for getting the exit status of
 the executed command, and for allowing multiple commands to run conditional on that exit status.
 It is initialized with a Shell Client, and then uses the client to run commands and get the results.
 """
-from com.hp.ucmdb.discovery.probe.services.dynamic.core import DynamicServiceFrameworkImpl
-from com.hp.ucmdb.discovery.library.communication.downloader.cfgfiles import GeneralSettingsConfigFile
-from java.io import File
-from java.util import Properties, WeakHashMap
-from java.util import Locale
-from java.nio.charset import Charset
-from java.nio import ByteBuffer
-from java.nio.charset import CodingErrorAction
-from java.lang import Exception as JavaException
-from com.hp.ucmdb.discovery.library.common import CollectorsParameters
-from com.hp.ucmdb.discovery.library.clients.agents import NTCmdSessionAgent
-from com.hp.ucmdb.discovery.library.clients.agents.ssh import SSHAgent
-from com.hp.ucmdb.discovery.library.clients.agents import AgentConstants
-from com.hp.ucmdb.discovery.library.clients.agents import PowerShellAgent
-from com.hp.ucmdb.discovery.library.clients.shell import PowerShellClient
-from com.hp.ucmdb.discovery.library.clients.protocols.telnet import StreamReaderThread
-from java.lang import String
-from java.lang import Boolean
-
-import modeling
-import netutils
-
-import logger
-import errorcodes
-import errorobject
-import shell_interpreter
+import codecs
+import os
 import re
 import string
 import sys
-import codecs
-import file_topology
-import file_system
-import os
 
+from com.hp.ucmdb.discovery.library.clients.agents import AgentConstants
+from com.hp.ucmdb.discovery.library.clients.agents import NTCmdSessionAgent
+from com.hp.ucmdb.discovery.library.clients.agents import PowerShellAgent
+from com.hp.ucmdb.discovery.library.clients.agents.ssh import SSHAgent
+from com.hp.ucmdb.discovery.library.clients.protocols.telnet import StreamReaderThread
+from com.hp.ucmdb.discovery.library.clients.shell import PowerShellClient
+from com.hp.ucmdb.discovery.library.common import CollectorsParameters
+from com.hp.ucmdb.discovery.library.communication.downloader.cfgfiles import GeneralSettingsConfigFile
+from com.hp.ucmdb.discovery.probe.services.dynamic.core import DynamicServiceFrameworkImpl
+from java.io import File
+from java.lang import Boolean
+from java.lang import Exception as JavaException
+from java.lang import String
+from java.nio import ByteBuffer
+from java.nio.charset import Charset
+from java.nio.charset import CodingErrorAction
+from java.util import Locale
+from java.util import Properties, WeakHashMap
+
+import file_system
+import file_topology
+import logger
+import modeling
+import netutils
+import shell_interpreter
 
 DDM_LINK_SYSTEM32_LOCATION = "%SystemDrive%"
 DDM_LINK_SYSTEM32_NAME = "ddm_link_system32"
@@ -45,6 +42,7 @@ DDM_LINK_SYSTEM32_NAME = "ddm_link_system32"
 
 class Command:
     'Shell command base class'
+
     def __init__(self, line, output=None, returnCode=None, cred_id=None, protocol_attrs=None):
         '''@types: str, str, int -> None
         @deprecated
@@ -96,6 +94,7 @@ class Language:
             except:
                 logger.warn("Charset is not supported: %s." % charsetName)
 
+
 LOCALE_SPANISH = Locale("es", "", "")
 LOCALE_RUSSIAN = Locale("ru", "", "")
 LOCALE_GERMAN = Locale("de", "", "")
@@ -109,7 +108,7 @@ LOCALE_HUNGARIAN = Locale("hu", "", "")
 
 #  fixed                                       charset(OEM/ANSI)
 LANG_HUNGARIAN = Language(LOCALE_HUNGARIAN, 'hun', ('Cp852', 'Cp1250',), (1038,), 852)
-LANG_ENGLISH = Language(Locale.ENGLISH, 'eng', ('Cp437','Cp1252',), (1033,), 437)
+LANG_ENGLISH = Language(Locale.ENGLISH, 'eng', ('Cp437', 'Cp1252',), (1033,), 437)
 LANG_GERMAN = Language(Locale.GERMAN, 'ger', ('Cp850', 'Cp1252'), (1031,), 850)
 LANG_SPANISH = Language(LOCALE_SPANISH, 'spa', ('Cp1252',), (1034, 3082,))
 LANG_RUSSIAN = Language(LOCALE_RUSSIAN, 'rus', ('Cp866', 'Cp1251'), (1049,), 866)
@@ -126,13 +125,13 @@ LANGUAGES = (LANG_ENGLISH, LANG_GERMAN, LANG_SPANISH, LANG_RUSSIAN,
              LANG_JAPANESE, LANG_FRENCH, LANG_ITALIAN, LANG_PORTUGUESE,
              LANG_CHINESE, LANG_KOREAN, LANG_DUTCH, LANG_HUNGARIAN, LANG_TRADITIONAL_CHINESE)
 
-#Used as default language for fallback
+# Used as default language for fallback
 DEFAULT_LANGUAGE = LANG_ENGLISH
-
 
 
 class OsLanguageDiscoverer:
     'Discoverer determines language on destination system'
+
     def __init__(self, shell):
         '@types: Shell -> None'
         self.shell = shell
@@ -144,6 +143,7 @@ class OsLanguageDiscoverer:
 
 class WindowsLanguageDiscoverer(OsLanguageDiscoverer):
     'Windows specific discoverer'
+
     def __init__(self, shell):
         '@types: Shell -> None'
         OsLanguageDiscoverer.__init__(self, shell)
@@ -167,7 +167,8 @@ class WindowsLanguageDiscoverer(OsLanguageDiscoverer):
         '''@types: -> shellutils.Language or None
         @command: wmic OS Get CodeSet
         '''
-        osLanguageOutput = self.shell.execAlternateCmds('wmic OS Get CodeSet < %SystemRoot%\win.ini', '%WINDIR%\system32\wbem\wmic OS Get CodeSet < %SystemRoot%\win.ini')
+        osLanguageOutput = self.shell.execAlternateCmds('wmic OS Get CodeSet < %SystemRoot%\win.ini',
+                                                        '%WINDIR%\system32\wbem\wmic OS Get CodeSet < %SystemRoot%\win.ini')
         if osLanguageOutput and self.shell.getLastCmdReturnCode() == 0:
             return self.__parseLanguageFromCharSet(osLanguageOutput)
 
@@ -179,7 +180,7 @@ class WindowsLanguageDiscoverer(OsLanguageDiscoverer):
                 charSetStr = matcher.group(1)
                 cpCharSet = 'Cp%s' % charSetStr
                 msCharSet = 'MS%s' % charSetStr
-                if cpCharSet != 'Cp1252':#Cp1252 is not enough to recognize OS language
+                if cpCharSet != 'Cp1252':  # Cp1252 is not enough to recognize OS language
                     for lang in LANGUAGES:
                         if cpCharSet in lang.charsets or msCharSet in lang.charsets:
                             logger.debug('Bundle postfix %s' % lang.bundlePostfix)
@@ -191,7 +192,8 @@ class WindowsLanguageDiscoverer(OsLanguageDiscoverer):
         '''@types: -> shellutils.Language or None
         @command: wmic OS Get OSLanguage
         '''
-        osLanguageOutput = self.shell.execAlternateCmds('wmic OS Get OSLanguage < %SystemRoot%\win.ini', '%WINDIR%\system32\wbem\wmic OS Get OSLanguage < %SystemRoot%\win.ini')
+        osLanguageOutput = self.shell.execAlternateCmds('wmic OS Get OSLanguage < %SystemRoot%\win.ini',
+                                                        '%WINDIR%\system32\wbem\wmic OS Get OSLanguage < %SystemRoot%\win.ini')
         if osLanguageOutput and self.shell.getLastCmdReturnCode() == 0:
             return self.__parseLanguageFromWmi(osLanguageOutput)
 
@@ -233,6 +235,7 @@ class WindowsLanguageDiscoverer(OsLanguageDiscoverer):
 
 class UnixLanguageDiscoverer(OsLanguageDiscoverer):
     'For Unix destination localization is not supported. English language is used'
+
     def __init__(self, shell):
         '@types: Shell -> None'
         OsLanguageDiscoverer.__init__(self, shell)
@@ -256,7 +259,7 @@ class KeywordOutputMatcher(OutputMatcher):
     def match(self, content):
         '@types: str -> bool'
         logger.debug('Matching by keyword: %s' % self.keyword)
-        #logger.debug('Content: %s' % content)
+        # logger.debug('Content: %s' % content)
         if self.keyword and content:
             buffer = re.search(self.keyword, content, re.I)
             if buffer:
@@ -292,8 +295,8 @@ class EncodingContext:
                     return (decodedContentString, charset.name())
 
             msg = "Command output verification has failed. Check whether the language is supported."
-            #errobj = errorobject.createError(errorcodes.COMMAND_OUTPUT_VERIFICATION_FAILED, None, msg)
-            #logger.reportWarningObject(errobj)
+            # errobj = errorobject.createError(errorcodes.COMMAND_OUTPUT_VERIFICATION_FAILED, None, msg)
+            # logger.reportWarningObject(errobj)
             logger.debug(msg)
 
         charset = Language.DEFAULT_CHARSET_OBJECT
@@ -322,7 +325,7 @@ class SSHOutputHandler(OutputHandler):
         resultContents = self.translateBackspaces(contents)
         resultContents = self.removeMarkers(resultContents)
         try:
-            resultContents, code = _extractCommandOutputAndReturnCode(resultContents) #@UnusedVariable
+            resultContents, code = _extractCommandOutputAndReturnCode(resultContents)  # @UnusedVariable
         except ValueError, e:
             logger.debug(str(e))
         return resultContents
@@ -402,6 +405,7 @@ class __CmdTransaction:
     ''' Command transaction class.
     Provides possibility to define alternative ways for determining command execution status
     '''
+
     def __init__(self, cmd, expectedReturnCode=None, sucessString=None, failureString=None):
         '''@types: str, int, str, str'''
         self.cmd = cmd
@@ -421,12 +425,13 @@ def ShellUtils(client, props=None, protocolName=None, skip_set_session_locale=No
             props = Properties()
         Framework = client
         client = Framework.createClient(props)
-    #TODO (stage 2) remove protocol name (it is possible when getOsType method will be migrated too)
+    # TODO (stage 2) remove protocol name (it is possible when getOsType method will be migrated too)
     return ShellFactory().createShell(client, protocolName, skip_set_session_locale)
 
 
 class ShellFactory:
     '''This class manages shell creation for different shell protocols SSH, Telnet, or NTCMD.'''
+
     def createShell(self, client, protocolName=None, skip_set_session_locale=None):
         '''@types: Client, java.util.Properties, str -> Shell
         @raise Exception: failed to detect OS
@@ -523,8 +528,8 @@ class ShellFactory:
                 errMsg = 'Failed detecting OS type. command=\'ver\' returned with no output'
                 logger.error(errMsg)
                 raise Exception(errMsg)
-            #83101: sometimes ntcmd runs into shell with 'MS-DOS 5.00.500' version
-            #'MS-DOS' check prevents the job going the 'Unix' path
+            # 83101: sometimes ntcmd runs into shell with 'MS-DOS 5.00.500' version
+            # 'MS-DOS' check prevents the job going the 'Unix' path
             winOs = self.__isWinDetectInVerOutput(osBuff)
             return winOs
         except:
@@ -581,39 +586,39 @@ class Shell:
     B{Shell is not thread-safe.} Every thread must have its own instance.
     """
     # class static constants
-    NO_CMD_RETURN_CODE_ERR_NUMBER = -9999 # constant to set last command error code when no error code could be retrieved from shell
+    NO_CMD_RETURN_CODE_ERR_NUMBER = -9999  # constant to set last command error code when no error code could be retrieved from shell
 
     def __init__(self, client):
         '@types: Client'
         self.cmdCache = WeakHashMap()
         # class instance data members
-        self.__client = client                # keep client connection object
-        #@deprecated: will be removed from public access
-        self.osType = None                    # operating system of the current connection session
-        #@deprecated: will be removed from public access
-        self.osVer = None                    # operating system version of the current connection session
-        self.__lastCmdReturnCode = None       # terminate status of the last command executed
-        self.__alternateCmdList = []        # list of alternative command
+        self.__client = client  # keep client connection object
+        # @deprecated: will be removed from public access
+        self.osType = None  # operating system of the current connection session
+        # @deprecated: will be removed from public access
+        self.osVer = None  # operating system version of the current connection session
+        self.__lastCmdReturnCode = None  # terminate status of the last command executed
+        self.__alternateCmdList = []  # list of alternative command
         self.__shellCmdSeparator = None
 
-        #@deprecated: will be removed from public access
+        # @deprecated: will be removed from public access
         self.winOs = self.isWinOs()
         self.getOsType()
-        #@deprecated: will be removed from public access
+        # @deprecated: will be removed from public access
         self.getLastCommandOutputBytes = None
-        #@deprecated: will be removed from public access
+        # @deprecated: will be removed from public access
         self.lastExecutedCommand = None
-        #@deprecated: will be removed from public access
+        # @deprecated: will be removed from public access
         self.copiedFiles = []
 
         self.osLanguage = None
-        #@deprecated: will be removed from public access
+        # @deprecated: will be removed from public access
         self.charsetName = None
         self.determineOsLanguage()
 
         if self.osLanguage.charsets:
             self.useCharset(self.osLanguage.charsets[0])
-        #@deprecated: will be removed from public access
+        # @deprecated: will be removed from public access
         self.globalSettings = GeneralSettingsConfigFile.getInstance()
         self.__defaultCommandTimeout = None
         self.getDefaultCommandTimeout()
@@ -758,28 +763,33 @@ class Shell:
         err_output = ''
         for cmdTrans in self.__alternateCmdList:
             try:
-                output = self.execCmd(cmdTrans.cmd, timeout)#@@CMD_PERMISION shell protocol execution
+                output = self.execCmd(cmdTrans.cmd, timeout)  # @@CMD_PERMISION shell protocol execution
                 if (cmdTrans.expectedReturnCode is not None):
                     if (cmdTrans.expectedReturnCode == self.getLastCmdReturnCode()):
                         logger.debug('command=\'%s\' ended successfully' % cmdTrans.cmd)
                         return output
                     else:
                         err_output = '%s\n%s' % (err_output, output)
-                        logger.debug('command=%s did not pass return code creteria. got rc=%d expected rc=%d' % (cmdTrans.cmd, self.getLastCmdReturnCode(), cmdTrans.expectedReturnCode))
+                        logger.debug('command=%s did not pass return code creteria. got rc=%d expected rc=%d' % (
+                        cmdTrans.cmd, self.getLastCmdReturnCode(), cmdTrans.expectedReturnCode))
                         continue
-                elif(cmdTrans.sucessString is not None):
+                elif (cmdTrans.sucessString is not None):
                     if (output.find(cmdTrans.sucessString) > -1):
                         # success string was found found in output therfore command ended successfully
                         logger.debug('command=\'%s\' ended successfully' % cmdTrans.cmd)
                         return output
                     else:
                         err_output = '%s\n%s' % (err_output, output)
-                        logger.debug('command=%s did not pass sucsess string creteria. got output string=%s expected=%s' % (cmdTrans.cmd, output, cmdTrans.sucessString))
+                        logger.debug(
+                            'command=%s did not pass sucsess string creteria. got output string=%s expected=%s' % (
+                            cmdTrans.cmd, output, cmdTrans.sucessString))
                         continue
-                elif(cmdTrans.failureString is not None):
+                elif (cmdTrans.failureString is not None):
                     if (output.find(cmdTrans.sucessString) > -1):
                         # failure string was found in output therefore command has failed
-                        logger.debug('command=\'%s\' did not pass failure string creteria. got output string=%s which contains failure string=%s' % (cmdTrans.cmd, output, cmdTrans.failureString))
+                        logger.debug(
+                            'command=\'%s\' did not pass failure string creteria. got output string=%s which contains failure string=%s' % (
+                            cmdTrans.cmd, output, cmdTrans.failureString))
                         err_output = '%s\n%s' % (err_output, output)
                         continue
                     else:
@@ -830,7 +840,8 @@ class Shell:
         """
         raise NotImplemented
 
-    def execCmd(self, cmdLine, timeout=0, waitForTimeout=0, useSudo=1, checkErrCode=1, useCache=0, preserveSudoContext=0, credential_id=None, protocol_attr_map=None):
+    def execCmd(self, cmdLine, timeout=0, waitForTimeout=0, useSudo=1, checkErrCode=1, useCache=0,
+                preserveSudoContext=0, credential_id=None, protocol_attr_map=None):
         """ Executes a shell command and sets the exit status of the command.
         @types: str, int, int, bool, bool, bool -> str
         Issue the given command followed by an echo of its return status, in the last line of the output
@@ -840,7 +851,7 @@ class Shell:
         @return: output of the executed shell command
         @raise Exception: Command execution does not produced output nor return code
         """
-        #We should keep this cache in client class(in java part or in the jython wrapper to the client)
+        # We should keep this cache in client class(in java part or in the jython wrapper to the client)
         if useCache and self.cmdCache.containsKey(cmdLine):
             command = self.cmdCache.get(cmdLine)
             self.__lastCmdReturnCode = command.returnCode
@@ -897,7 +908,8 @@ class Shell:
                 logger.debug('Trying to resolve ip for node %s by nslookup command' % hostName)
                 result = self.execCmd('nslookup %s' % hostName)
                 logger.debug('nslookup command returned result:', result)
-                m = re.search('(Name:)\s+(.+)\s+(Address:)\s+(\d+\.\d+\.\d+\.\d+)', result) or re.search('(Name:)\s+(.+)\s+(Addresses:)\s+(?:[0-9a-f:]*)\s+(\d+\.\d+\.\d+\.\d+)', result)
+                m = re.search('(Name:)\s+(.+)\s+(Address:)\s+(\d+\.\d+\.\d+\.\d+)', result) or re.search(
+                    '(Name:)\s+(.+)\s+(Addresses:)\s+(?:[0-9a-f:]*)\s+(\d+\.\d+\.\d+\.\d+)', result)
                 if m is not None:
                     node_ip = m.group(4).strip()
                     dns_name = m.group(2).strip()
@@ -929,9 +941,10 @@ class Shell:
         if (node_ip is None) or (netutils.isLocalIp(node_ip)):
             try:
                 logger.debug('Trying to resolve ip for node %s by nslookup command' % hostName)
-                result = self.execCmd('nslookup %s' % hostName)#@@CMD_PERMISION shell protocol execution
+                result = self.execCmd('nslookup %s' % hostName)  # @@CMD_PERMISION shell protocol execution
                 logger.debug('nslookup command returned result:', result)
-                m = re.search('(Name:)\s+(.+)\s+(Address:)\s+(\d+\.\d+\.\d+\.\d+)', result) or re.search('(Name:)\s+(.+)\s+(Addresses:)\s+(?:[0-9a-f:]*)\s+(\d+\.\d+\.\d+\.\d+)', result)
+                m = re.search('(Name:)\s+(.+)\s+(Address:)\s+(\d+\.\d+\.\d+\.\d+)', result) or re.search(
+                    '(Name:)\s+(.+)\s+(Addresses:)\s+(?:[0-9a-f:]*)\s+(\d+\.\d+\.\d+\.\d+)', result)
                 if m is not None:
                     node_ip = m.group(4).strip()
                 else:
@@ -1013,7 +1026,7 @@ class Shell:
         @raise ValueError: If decoding is not supported for used protocol type
         '''
         if self.getClientType() == 'ntadmin' or (self.getClientType() == 'uda' and isinstance(self, WinShell)) or \
-                        self.getClientType() == 'powercmd':
+                self.getClientType() == 'powercmd':
             trimWSString = self.__client.getProperty(AgentConstants.PROP_NTCMD_AGENT_TRIM_WHITESPACE)
             trimWS = 1
 
@@ -1033,7 +1046,8 @@ class Shell:
         else:
             raise ValueError("Decoding is not supported for protocol type %s" % self.getClientType())
 
-    def executeCommandAndDecodeByMatcher(self, cmd, matcher, framework, timeout=0, waitForTimeout=0, useSudo=1, language=None):
+    def executeCommandAndDecodeByMatcher(self, cmd, matcher, framework, timeout=0, waitForTimeout=0, useSudo=1,
+                                         language=None):
         ''' Execute command and try to decode output using predefined charsets.
         Decoded output considered as valid if it is matched by provided matcher.
         @types: str, OutputMatcher, Framework, int, int, bool, Language -> str
@@ -1054,7 +1068,8 @@ class Shell:
         ''' Execute command and try to decode output using predefined charsets.
         Decoded output considered as valid if it is matched by KEYWORD matcher.
         @types: str, str, Framework, int, int, bool, Language -> str'''
-        return self.executeCommandAndDecodeByMatcher(cmd, KeywordOutputMatcher(keyword), framework, timeout, waitForTimeout, useSudo, language)
+        return self.executeCommandAndDecodeByMatcher(cmd, KeywordOutputMatcher(keyword), framework, timeout,
+                                                     waitForTimeout, useSudo, language)
 
     def getCharsetName(self):
         ''' Get name of the character set for the latest command execution
@@ -1096,6 +1111,7 @@ class CiscoIOSShell(Shell):
         cls._set_terminal_length(client, 0)
         buffer = client.executeCmd('sh ver', 0, 1)
         return bool(buffer and re.search(cls._CISCO_VER_MARKER, buffer))
+
     is_applicable = isCisco
 
     @staticmethod
@@ -1111,6 +1127,7 @@ class CiscoIOSShell(Shell):
         client.executeCmd('terminal length 0', 0, 1)
         buffer = client.executeCmd('sh ver', 0, 1)
         return bool(buffer and re.search(cls._CISCO_VER_MARKER, buffer))
+
     is_applicable = isCisco
 
     def determineOsLanguage(self):
@@ -1157,6 +1174,7 @@ class JunOsShell(CiscoIOSShell):
         '''
         buffer = client.executeCmd('sh ver | no-more', 0, 1)
         return bool(buffer and re.search(cls._JUNOS_VER_MARKER, buffer))
+
     is_applicable = isJuniper
 
     @staticmethod
@@ -1168,12 +1186,12 @@ class NexusShell(CiscoIOSShell):
     'Basic class for Nexus shell'
     _CISCO_VER_MARKER = 'Nexus'
     _OSTYPE = 'NXOS'
-    
+
 
 class F5Shell(CiscoIOSShell):
     _F5_VER_MARKER = 'BIG-IP'
     _OSTYPE = 'TMOS'
-    
+
     @classmethod
     def isF5(cls, client):
         ''' Check for F5  shell.
@@ -1182,16 +1200,17 @@ class F5Shell(CiscoIOSShell):
         '''
         buffer = client.executeCmd('show sys version', 0, 1)
         return bool(buffer and re.search(cls._F5_VER_MARKER, buffer))
+
     is_applicable = isF5
-    
+
     @staticmethod
     def _is_invalid_command(output):
         return output.find('Syntax Error:') >= 0
-    
-    
+
+
 class WinShell(Shell):
     'Basic class for Windows shell'
-    #'@deprecated: Constant will be removed from the public access'
+    # '@deprecated: Constant will be removed from the public access'
     DEFAULT_ENGLISH_CODEPAGE = 437
     DEFAULT_WIN_SHARE = 'admin$\\system32\\drivers\etc'
     __DEFAULT_COMMAND_SEPARATOR = '&'
@@ -1261,7 +1280,7 @@ class WinShell(Shell):
             logger.warn("Failed to detect codepage, assuming default: 437")
         return codePage
 
-    def setCodePage(self, newCodePage = DEFAULT_ENGLISH_CODEPAGE):
+    def setCodePage(self, newCodePage=DEFAULT_ENGLISH_CODEPAGE):
         """Set new codepage on remote Windows machine to which the shell client is connected
         @Types: Integer -> Integer
         @command: chcp <codepage>
@@ -1283,12 +1302,13 @@ class WinShell(Shell):
         @command: ver
         @raise Exception: Failed getting machine OS type.
         """
-        osBuff = self.execCmd('ver', useCache=1)#@@CMD_PERMISION shell protocol execution
+        osBuff = self.execCmd('ver', useCache=1)  # @@CMD_PERMISION shell protocol execution
         if (self.getLastCmdReturnCode() == self.NO_CMD_RETURN_CODE_ERR_NUMBER and self.__protocolName == 'sshprotocol'):
             self.__shellStatusVar = '$?'
-            osBuff = self.execCmd('ver')#@@CMD_PERMISION shell protocol execution
+            osBuff = self.execCmd('ver')  # @@CMD_PERMISION shell protocol execution
         if (self.getLastCmdReturnCode() != 0):
-            logger.debug('failed getting os type. command=ver failed with rc=%d' % (self.getLastCmdReturnCode()) + ". Output buffer :" + osBuff)
+            logger.debug('failed getting os type. command=ver failed with rc=%d' % (
+                self.getLastCmdReturnCode()) + ". Output buffer :" + osBuff)
             raise Exception('Failed getting machine OS type.')
         else:
             match = re.search('(.*)\s*\[', osBuff)
@@ -1305,7 +1325,7 @@ class WinShell(Shell):
         @command: ver
         @raise Exception: Failed getting os type
         '''
-        buffer = self.execCmd('ver')#@@CMD_PERMISION shell protocol execution
+        buffer = self.execCmd('ver')  # @@CMD_PERMISION shell protocol execution
         if (self.getLastCmdReturnCode() != 0):
             raise Exception('Failed getting os version. command=ver failed with rc=%d' % (self.getLastCmdReturnCode()))
         else:
@@ -1327,7 +1347,8 @@ class WinShell(Shell):
         @raise Exception: Command execution does not produced output nor return code
         '''
         if cmd.cred_id and cmd.protocol_attrs:
-            output = self.__client.executeCmd(cmd.line, cmd.cred_id, cmd.protocol_attrs, cmd.executionTimeout, cmd.waitForTimeout)
+            output = self.__client.executeCmd(cmd.line, cmd.cred_id, cmd.protocol_attrs, cmd.executionTimeout,
+                                              cmd.waitForTimeout)
         else:
             output = self.__client.executeCmd(cmd.line, cmd.executionTimeout, cmd.waitForTimeout)
         cmd.outputInBytes = self.__client.getLastCommandOutputBytes()
@@ -1336,7 +1357,8 @@ class WinShell(Shell):
         except:
             cmd.returnCode = self.NO_CMD_RETURN_CODE_ERR_NUMBER
             if output is None:
-                raise Exception('Executing command: "%s" failed. Command produced no output and no return status (we might be connected to an unstable agent)' % cmd.cmd)
+                raise Exception(
+                    'Executing command: "%s" failed. Command produced no output and no return status (we might be connected to an unstable agent)' % cmd.cmd)
         cmd.output = output
         return cmd
 
@@ -1384,9 +1406,10 @@ class WinShell(Shell):
         File(tempFileFolder).mkdirs()
         localFileName = tempFileFolder + remoteFileName
 
-        if self.__client.downloadFile(localFileName, remoteFilePath + remoteFileName, True) != 0 :
+        if self.__client.downloadFile(localFileName, remoteFilePath + remoteFileName, True) != 0:
             # failed to download the files
-            logger.debug("Failed to download remote file: ", remoteFilePath + remoteFileName, ", localFileName: " + localFileName)
+            logger.debug("Failed to download remote file: ", remoteFilePath + remoteFileName,
+                         ", localFileName: " + localFileName)
             localFileName = None
 
         return localFileName
@@ -1421,7 +1444,7 @@ class WinShell(Shell):
 
     def __convertAddressForUnc(self, ip):
         if ':' in ip:
-            ip = ip.replace(':','-').replace('%', 's')
+            ip = ip.replace(':', '-').replace('%', 's')
             ip += '.ipv6-literal.net'
         return ip
 
@@ -1446,7 +1469,7 @@ class WinShell(Shell):
         @return: return None if file is not copied
         """
         remoteFile = self.__composeRemotePath(localFile, share)
-        self.execCmd('dir ' + remoteFile)#@@CMD_PERMISION shell protocol execution
+        self.execCmd('dir ' + remoteFile)  # @@CMD_PERMISION shell protocol execution
         rtCode = self.getLastCmdReturnCode()
         if rtCode == 0 and checkSize and not self.checkSizeForCopy(localFile, remoteFile):
             rtCode = -1
@@ -1467,8 +1490,8 @@ class WinShell(Shell):
                 interpreter = shell_interpreter.Factory().create(self)
                 systemRoot = interpreter.getEnvironment().buildVarRepresentation('SystemRoot')
                 interpreter.getEnvironment().appendPath('PATH', '%s\\system32\\drivers\\etc' % systemRoot,
-                    '%s\\SysWOW64' % systemRoot,
-                    '%s\\system32' % systemRoot)
+                                                        '%s\\SysWOW64' % systemRoot,
+                                                        '%s\\system32' % systemRoot)
                 self.__pathAppended = 1
             except:
                 logger.debugException('Failed to append path using shell_interpreter')
@@ -1484,7 +1507,7 @@ class WinShell(Shell):
         system32Line = self.execCmd('dir %SystemRoot% /O:-D | find /I "system32"')
         system32Name = None
         if self.getLastCmdReturnCode() == 0:
-            match = re.search(r'.*\s+(system32)$', system32Line, re.IGNORECASE|re.MULTILINE)
+            match = re.search(r'.*\s+(system32)$', system32Line, re.IGNORECASE | re.MULTILINE)
             if match:
                 system32Name = match.group(1)
 
@@ -1500,9 +1523,9 @@ class WinShell(Shell):
         @param lock: variable to control whether to lock or not the created junction point once it is created, default is 1 (meaning lock it)
         @param force: variable to control whether Universal Discovery should decide upon creation of junction point (WinOS + 64bit) or forcibly create it
         @raise ValueError: if creation or locking failed
-        @command: linkd <src> <dest>
-        @command: mklink /d <src> <dest>
-        @command: junction <src> <dest> /accepteula
+        @command: linkd <personal> <dest>
+        @command: mklink /d <personal> <dest>
+        @command: junction <personal> <dest> /accepteula
         @deprecated: Use methods from file system module instead
         """
         actualLinkFolder = None
@@ -1518,10 +1541,10 @@ class WinShell(Shell):
             actualLinkFolder = self.__ddm_link_system32
         if not self.fsObjectExists(actualLinkFolder):
             self.execAlternateCmdsList(['linkd %s %s' % (actualLinkFolder, self.__system32), \
-                                'mklink /d %s %s' % (actualLinkFolder, self.__system32)])
+                                        'mklink /d %s %s' % (actualLinkFolder, self.__system32)])
             if self.getLastCmdReturnCode() != 0:
                 localFile = CollectorsParameters.BASE_PROBE_MGR_DIR + CollectorsParameters.getDiscoveryResourceFolder() + \
-                    CollectorsParameters.FILE_SEPARATOR + 'junction.exe'
+                            CollectorsParameters.FILE_SEPARATOR + 'junction.exe'
                 self.copyFileIfNeeded(localFile)
                 self.execCmd('junction %s %s /accepteula' % (actualLinkFolder, self.__system32))
 
@@ -1625,15 +1648,15 @@ class WinShell(Shell):
             return self.__exeCmdlet(cmdlet, lineWidth)
 
     def __exeCmdlet(self, cmdlet, lineWidth):
-            powershellCommand = self.prepareCommand(cmdlet, self.__powershellCommandPattern, lineWidth)
-            return self.execCmd(powershellCommand, 120000)
+        powershellCommand = self.prepareCommand(cmdlet, self.__powershellCommandPattern, lineWidth)
+        return self.execCmd(powershellCommand, 120000)
 
-    def prepareCommand(self, cmdlet, commandPattern,  lineWidth=128):
-        #encode with "UTF-16LE" first because powershell only supports unicode, which is an encoding for the UTF-16 format using the little endian byte order
+    def prepareCommand(self, cmdlet, commandPattern, lineWidth=128):
+        # encode with "UTF-16LE" first because powershell only supports unicode, which is an encoding for the UTF-16 format using the little endian byte order
         encodedCmdlet = self.__pipeToOutStringFormat(cmdlet).encode("UTF-16LE").encode("base64")
 
-        #Python str.encode('base64') method wraps lines at 76 characters.Remove all the "\n" from the command
-        encodedCmdlet = re.sub('\n','', encodedCmdlet)
+        # Python str.encode('base64') method wraps lines at 76 characters.Remove all the "\n" from the command
+        encodedCmdlet = re.sub('\n', '', encodedCmdlet)
 
         powershellCommand = commandPattern % encodedCmdlet
         return powershellCommand
@@ -1663,12 +1686,12 @@ class PowerShell(WinShell):
     __REMOTE_SESSION_IDENTIFIER = PowerShellAgent.REMOTE_SESSION_IDENTIFIER
     __DEFAULT_COMMAND_SEPARATOR = ';'
     __INVOKE_COMMAND_SCRIPT_BLOCK = (
-                'Invoke-Command -ScriptBlock {%s ;$?} -Session $'
-                 + __REMOTE_SESSION_IDENTIFIER)
+            'Invoke-Command -ScriptBlock {%s ;$?} -Session $'
+            + __REMOTE_SESSION_IDENTIFIER)
     __INVOKE_COMMAND_LOCAL_SCRIPT = (
-                'Invoke-Command -FilePath %s -Session $'
-                 + __REMOTE_SESSION_IDENTIFIER
-                 + '; $?')
+            'Invoke-Command -FilePath %s -Session $'
+            + __REMOTE_SESSION_IDENTIFIER
+            + '; $?')
 
     def __init__(self, client, protocolName):
         '@types: PowerShellClient, str -> None'
@@ -1682,8 +1705,8 @@ class PowerShell(WinShell):
         # configuration file will be executed using CMD interpreter
         self.__consoleCommands = ['ver', 'type', 'wmic', 'chcp']
         consoleCommands = (GeneralSettingsConfigFile.getInstance().
-                            getPropertyTextValue('consoleCommands')
-                            or "")
+                           getPropertyTextValue('consoleCommands')
+                           or "")
         _isEmptyString = lambda s: s and s.strip()
         _normalize = lambda s: s.strip().lower()
         consoleCommands = filter(_isEmptyString, consoleCommands.split(','))
@@ -1791,8 +1814,7 @@ class PowerShell(WinShell):
         encodedCmd = self.prepareCommand(cmd, self.ENCODED_COMMAND_PATTERN, lineWidth)
         return self.execCmd(encodedCmd, pipeToOutString=0)
 
-
-    def execCmd(self, cmdLine, timeout=0, waitForTimeout=0, useSudo=1,\
+    def execCmd(self, cmdLine, timeout=0, waitForTimeout=0, useSudo=1, \
                 checkErrCode=1, useCache=0, lineWidth=80, pipeToOutString=1):
         ''' Execute command in powershell
         * If current command is cmdlet:
@@ -1913,13 +1935,14 @@ class UnixShell(Shell):
         self.__useCustomPrivilegedModeExecutionPolicy = None
         sudoExcludeCommandsPattern = "\s*export\s+|\s*set\s+|\s*LC_ALL\s*=|\s*LANG\s*=|\s*ORACLE_HOME\s*=|\s*PATH\s*=|\s*DB2NODE\s*="
         self.__sudoExcludeCommandMatcher = re.compile(sudoExcludeCommandsPattern)
-        self._checkFileExistance = GeneralSettingsConfigFile.getInstance().getPropertyBooleanValue('SudoCheckFileExists', False)
+        self._checkFileExistance = GeneralSettingsConfigFile.getInstance().getPropertyBooleanValue(
+            'SudoCheckFileExists', False)
         Shell.__init__(self, client)
 
         # if the shell supports sudo commands then retrieve sudo paths/commands to use later:
         if self.__client.supportsSudo():
             self.__retrieveSudoDetails()
-        #check if session locale must be altered
+        # check if session locale must be altered
         if not (kwargs.get('skip_set_session_locale') or (args and args[0])):
             self.setSessionLocale()
         # if the osType is 'SunOS' and the shell is '/sbin/sh' -
@@ -1930,7 +1953,8 @@ class UnixShell(Shell):
 
         try:
             interpreter = shell_interpreter.Factory().create(self)
-            interpreter.getEnvironment().appendPath('PATH', '/bin', '/usr/bin', '/usr/local/bin', '/sbin', '/usr/sbin', '/usr/local/sbin')
+            interpreter.getEnvironment().appendPath('PATH', '/bin', '/usr/bin', '/usr/local/bin', '/sbin', '/usr/sbin',
+                                                    '/usr/local/sbin')
         except:
             logger.debugException('Failed to append path using shell_interpreter')
 
@@ -1954,10 +1978,11 @@ class UnixShell(Shell):
         @command: uname -r
         @raise Exception: Failed getting OS version
         '''
-        buffer = self.execCmd('uname -r')#@@CMD_PERMISION shell protocol execution
+        buffer = self.execCmd('uname -r')  # @@CMD_PERMISION shell protocol execution
         if (self.getLastCmdReturnCode() == 0):
             return buffer
-        raise Exception('Failed getting OS version. command="uname -r" failed with rc=%d' % (self.getLastCmdReturnCode()))
+        raise Exception(
+            'Failed getting OS version. command="uname -r" failed with rc=%d' % (self.getLastCmdReturnCode()))
 
     def _getOsType(self):
         """ Get OS type
@@ -1965,7 +1990,7 @@ class UnixShell(Shell):
         @command: uname
         @raise Exception: Failed getting machine OS type.
         """
-        osBuff = self.execCmd('uname')#@@CMD_PERMISION shell protocol execution
+        osBuff = self.execCmd('uname')  # @@CMD_PERMISION shell protocol execution
         if (self.getLastCmdReturnCode() == 0):
             return osBuff.strip()
         raise Exception('Failed getting machine OS type.')
@@ -2023,7 +2048,8 @@ class UnixShell(Shell):
         @command: locale -a | grep -E --color=never "en_US.*|^C|POSIX"
         @command: locale -a | /usr/xpg4/bin/grep -E "en_US.*|^C|POSIX"
         '''
-        buff = self.execAlternateCmds('locale -a | grep -E --color=never "en_US.*|^C|POSIX"', 'locale -a | /usr/xpg4/bin/grep -E "en_US.*|^C|POSIX"')
+        buff = self.execAlternateCmds('locale -a | grep -E --color=never "en_US.*|^C|POSIX"',
+                                      'locale -a | /usr/xpg4/bin/grep -E "en_US.*|^C|POSIX"')
         buff_list = buff.splitlines()
         buff_en_US = []
         buff_C = []
@@ -2064,7 +2090,7 @@ class UnixShell(Shell):
         ''' Specific for Sun OS where shell 'sh' has command length limitation
         @types: -> bool
         '''
-        #TODO: SunShell ?
+        # TODO: SunShell ?
         return self.getOsType() == 'SunOS' and self.getShell() == '/sbin/sh'
 
     def __executeCommand(self, command):
@@ -2113,7 +2139,7 @@ class UnixShell(Shell):
         for i in range(0, len(commandElements)):
             command = commandElements[i]
             if not command or re.match(splitPattern, command):
-                #we do not want to process split elements since they aren't commands
+                # we do not want to process split elements since they aren't commands
                 continue
             isDestinationConfigured = 1
             if checkDestinationConfiguration:
@@ -2128,7 +2154,7 @@ class UnixShell(Shell):
         sudoConfiguredCommands = self.__getSudoConfiguredCommands()
         if sudoConfiguredCommands:
             for configuredCommand in sudoConfiguredCommands:
-                if re.match(re.sub( '''['"\*]+''' , '' , configuredCommand), command.strip()):
+                if re.match(re.sub('''['"\*]+''', '', configuredCommand), command.strip()):
                     logger.debug('Command %s is configured to run with sudo on destination.' % command)
                     return 1
 
@@ -2149,7 +2175,8 @@ class UnixShell(Shell):
         if self.__sudoCommandsArray:
             for sudoCommandPattern in self.__sudoCommandsArray:
                 if re.match(sudoCommandPattern.lstrip(), command.strip()):
-                    logger.debug("Command %s is matched by privileged command pattern %s" % (command, sudoCommandPattern))
+                    logger.debug(
+                        "Command %s is matched by privileged command pattern %s" % (command, sudoCommandPattern))
                     if self._checkFileExistance:
                         logger.debug('Performing extra check for file presence on FS.')
                         # The regexp here is used to get the binary path in case it's used as full path.
@@ -2157,7 +2184,8 @@ class UnixShell(Shell):
                         # In the same time in case it's run like sudo /path_to_command/sample_command then we should check if that file exists.
                         # This request comes from VW due to the way how they distribute sudoers, etc.
                         if command.strip("""\t "'""").startswith('/'):
-                            m = re.match('[ \t]*([\w/\-]+)[ \t]*', command) or re.match('[ \t]*[\'"]+([\w/\- ]+)[ \t]*[\'"]+', command)
+                            m = re.match('[ \t]*([\w/\-]+)[ \t]*', command) or re.match(
+                                '[ \t]*[\'"]+([\w/\- ]+)[ \t]*[\'"]+', command)
                             if m and self.fsObjectExists('"%s"' % m.group(1)):
                                 logger.debug('File %s presence detected on FS' % m.group(1))
                                 return 1
@@ -2230,13 +2258,13 @@ class UnixShell(Shell):
         cmd = command.line
         if cmd:
             cmd = cmd.strip()
-        return not(cmd in (enter_cmd, exit_cmd)) and self.__shouldRunAsSuperUser(cmd)
+        return not (cmd in (enter_cmd, exit_cmd)) and self.__shouldRunAsSuperUser(cmd)
 
     def _execute(self, command):
         '@types: Command -> Command'
-        #We always expect new line after command execution but there are systems which do not append new line after command output buffer.
-        #Since we append error code after output buffer we need to introduce separator to separate error code from the command output buffer.
-        #For this purpose we use ERROR_CODE_PREFIX
+        # We always expect new line after command execution but there are systems which do not append new line after command output buffer.
+        # Since we append error code after output buffer we need to introduce separator to separate error code from the command output buffer.
+        # For this purpose we use ERROR_CODE_PREFIX
         if self.__shouldUseCustomPrivilegedModeExecutionPolicy() and self.__shouldRunInPrivMode(command):
             return self.__executeCommandWithCustomMode(command)
 
@@ -2244,12 +2272,12 @@ class UnixShell(Shell):
         cmd = command.line
         if command.useSudo:
             if self.__client.supportsSudo() and sudoSuPolicy != UnixShell.ONLY_SU_POLICY and self.__canUseSudo(cmd):
-                #in case sudo -l command ran fine we just run commands according to the configured list of commands
+                # in case sudo -l command ran fine we just run commands according to the configured list of commands
                 if self.__sudoListCommandsSuccess:
                     command.line = self.__prepareCmdForSudo(cmd, command.preserveSudoContext)
                     return self.__executeCommand(command)
                 else:
-                    #in case sudo -l failed we'll try to run commands both, with and without check for sudo preffix.
+                    # in case sudo -l failed we'll try to run commands both, with and without check for sudo preffix.
                     resultingCommand = self.__executeCommand(command)
                     if resultingCommand.returnCode != 0:
                         command.line = self.__prepareCmdForSudo(cmd, command.preserveSudoContext)
@@ -2277,7 +2305,7 @@ class UnixShell(Shell):
             else:
                 self.__sudoCommandsArray = splitCommandsTrim
 
-    def __prepareCmdForSudo(self, cmd, preserveSudoContext = 0):
+    def __prepareCmdForSudo(self, cmd, preserveSudoContext=0):
         '@types: str -> str'
         # in case we don't have sudo details - return the command itself
         if not self.__sudoPathsArray:
@@ -2333,7 +2361,7 @@ class UnixShell(Shell):
                 self.__sudoConfiguredCommands = ['.*']
         return self.__sudoConfiguredCommands
 
-    def __getSudoWithCmd(self, sudoPath, originalCommand, preserveSudoContext = 0):
+    def __getSudoWithCmd(self, sudoPath, originalCommand, preserveSudoContext=0):
         '@types: str, str -> str'
         if not self.__sudoCommandsArray:
             logger.debug('No sudo commands specified.')
@@ -2355,7 +2383,7 @@ class UnixShell(Shell):
                     return '%s %s' % (sudoPathWithParams, originalCommand)
                 else:
                     return '%s %s -c "%s"' % (
-                    sudoPathWithParams, self.getShell(), re.sub(r'(?<!\\)"', r'\\"', originalCommand))
+                        sudoPathWithParams, self.getShell(), re.sub(r'(?<!\\)"', r'\\"', originalCommand))
 
             m = re.search('\S*perl\s', originalCommand)
             if m:
@@ -2367,7 +2395,7 @@ class UnixShell(Shell):
                 for i in range(0, len(commandElements)):
                     command = commandElements[i]
                     if not command or re.match(splitPattern, command):
-                        #we do not want to process split elements since they aren't commands
+                        # we do not want to process split elements since they aren't commands
                         continue
                     if self.__shouldCommandElemRunAsSuperUser(command):
                         if self.__isCommandConfiguredOnDestination(command):
@@ -2375,7 +2403,8 @@ class UnixShell(Shell):
 
                             command = "%s %s" % (sudoPathWithParams, command)
                         else:
-                            logger.warn('Command %s matches the UCMDB privileged command patterns but is not in the sudo list on the destination.' % command)
+                            logger.warn(
+                                'Command %s matches the UCMDB privileged command patterns but is not in the sudo list on the destination.' % command)
                     commandElements[i] = command
 
                 return ''.join(commandElements)
@@ -2385,7 +2414,7 @@ class UnixShell(Shell):
         if self.__sudoPath is not None:
             return self.__sudoPath
         else:
-            if (not self.__sudoPathsArray or not(len(self.__sudoPathsArray) > 0)):
+            if (not self.__sudoPathsArray or not (len(self.__sudoPathsArray) > 0)):
                 self.__sudoPath = ''
             else:
                 for path in self.__sudoPathsArray:
@@ -2393,27 +2422,33 @@ class UnixShell(Shell):
                     logger.debug('__getSudoPath: checking "%s" command' % cmdWithRc)
                     buff = self.__client.executeCmd(cmdWithRc, 0, 0)
                     if (buff is None):
-                        logger.debug('__getSudoPath: execution of %s failed - command produced no output and no return status' % cmdWithRc)
+                        logger.debug(
+                            '__getSudoPath: execution of %s failed - command produced no output and no return status' % cmdWithRc)
                     else:
                         keepends = 1
                         resLines = buff.strip().splitlines(keepends)
                         lastLineNum = len(resLines) - 1
                         # separate the last line in order to isolate the return status
                         if (lastLineNum < 0):
-                            logger.debug('__getSudoPath: no output was received for %s - proceeding to check next path' % cmdWithRc)
+                            logger.debug(
+                                '__getSudoPath: no output was received for %s - proceeding to check next path' % cmdWithRc)
                             continue
                         lastLine = resLines[lastLineNum].strip()
                         try:
                             lastCmdReturnCode = int(lastLine.strip())
-                            #noinspection PySimplifyBooleanCheck
+                            # noinspection PySimplifyBooleanCheck
                             if lastCmdReturnCode == 0:
-                                logger.debug("__getSudoPath: execution of '%s' succeeded - setting it as sudo path" % cmdWithRc)
+                                logger.debug(
+                                    "__getSudoPath: execution of '%s' succeeded - setting it as sudo path" % cmdWithRc)
                                 self.__sudoPath = path
                                 return self.__sudoPath
                         except:
-                            logger.debug('__getSudoPath: error parsing return code for command: %s=> returned output: %s' % (cmdWithRc, lastLine))
+                            logger.debug(
+                                '__getSudoPath: error parsing return code for command: %s=> returned output: %s' % (
+                                cmdWithRc, lastLine))
                             continue
-                logger.debug('__getSudoPath: none of the supplied sudo paths is valid  - proceeding without sudo support')
+                logger.debug(
+                    '__getSudoPath: none of the supplied sudo paths is valid  - proceeding without sudo support')
                 self.__sudoPath = ''
         return self.__sudoPath
 
@@ -2448,15 +2483,15 @@ class UnixShell(Shell):
             raise ValueError('Illegal cat command, contains redirect')
 
         path = self.rebuildPath(path)
-        #If we are not forced to use sudo - first try regular cat - in case
-        #it doesn't work - try sudo cat...
+        # If we are not forced to use sudo - first try regular cat - in case
+        # it doesn't work - try sudo cat...
         cmd = 'cat %s' % path
         self.lastExecutedCommand = cmd
         if not forceSudo:
-            fileContents = self.execCmd(cmd, useSudo=0)#@@CMD_PERMISION shell protocol execution
+            fileContents = self.execCmd(cmd, useSudo=0)  # @@CMD_PERMISION shell protocol execution
             if not self.getLastCmdReturnCode():
                 return fileContents
-        fileContents = self.execCmd(cmd)#@@CMD_PERMISION shell protocol execution
+        fileContents = self.execCmd(cmd)  # @@CMD_PERMISION shell protocol execution
         if not self.getLastCmdReturnCode():
             return fileContents
         else:
@@ -2465,9 +2500,10 @@ class UnixShell(Shell):
                 raise EnvironmentError('sudo for cat is not implemented on server')
             elif re.search('not found', fileContents.lower()):
                 raise EnvironmentError('sudo is not available on server')
-            elif re.search('no such file or directory', fileContents.lower()) or re.search('0652-050 cannot open', fileContents.lower()):
+            elif re.search('no such file or directory', fileContents.lower()) or re.search('0652-050 cannot open',
+                                                                                           fileContents.lower()):
                 logger.warn('File not found: %s ' % path)
-                raise EnvironmentError ('File not found')
+                raise EnvironmentError('File not found')
             else:
                 logger.warn('Failed getting contents of %s file' % path)
                 raise Exception('Failed getting contents of file')
@@ -2529,7 +2565,7 @@ class VIOShell(UnixShell):
         @raise Exception: Failed getting machine OS type.
         """
 
-        osBuff = self.execIoscliCmd('uname')#@@CMD_PERMISION shell protocol execution
+        osBuff = self.execIoscliCmd('uname')  # @@CMD_PERMISION shell protocol execution
         if (self.getLastCmdReturnCode() == 0):
             return osBuff.strip()
         raise Exception('Failed getting machine OS type.')
@@ -2540,15 +2576,16 @@ class VIOShell(UnixShell):
         @command: uname -r
         @raise Exception: Failed getting OS version.
         '''
-        buffer = self.execIoscliCmd('uname -r')#@@CMD_PERMISION shell protocol execution
+        buffer = self.execIoscliCmd('uname -r')  # @@CMD_PERMISION shell protocol execution
         if (self.getLastCmdReturnCode() == 0):
             return buffer
-        raise Exception('Failed getting os version. command="ioscli uname -r" failed with rc=%d' % (self.getLastCmdReturnCode()))
+        raise Exception(
+            'Failed getting os version. command="ioscli uname -r" failed with rc=%d' % (self.getLastCmdReturnCode()))
 
 
 def getLanguageBundle(baseName, language, framework):
     '@types: str, str, Framework -> bundle'
-    languageName = language.bundlePostfix #language.locale.toString()
+    languageName = language.bundlePostfix  # language.locale.toString()
     return framework.getEnvironmentInformation().getBundle(baseName, languageName)
 
 
